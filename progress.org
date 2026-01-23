@@ -815,3 +815,48 @@
     - No need for complex boolean query syntax in MVP - simple text/tag search is sufficient
     - Search scope limited to today.org and week.org (not archive) for performance
     - =member= for tag membership test returns non-nil on match, suitable for predicate use
+
+* 2026-01-24 - doing-auto-tags configuration
+- what was implemented
+  - Added =doing-auto-tags= customization variable to doing.el for directory-based tagging
+  - Added =doing--auto-tags-for-directory= helper function to doing-lib.el
+  - Function implements longest-prefix matching to find appropriate auto-tags configuration
+  - Integrated auto-tagging into =doing-now= command in doing-now.el
+  - Auto-tags and user-provided tags are merged, with duplicate removal via =delete-dups=
+  - Project property is automatically set based on auto-tags configuration
+  - Added 6 comprehensive tests covering all auto-tagging functionality
+  - All 108 tests pass successfully (102 from previous phases + 6 new tests)
+- files changed
+  - doing.el — added =doing-auto-tags= defcustom with plist-based configuration format
+  - doing-lib.el — added forward declaration for =doing-auto-tags= and =doing--auto-tags-for-directory= helper function
+  - doing-now.el — enhanced =doing-now= to retrieve auto-tags, merge with user tags, and apply project property
+  - tests/doing-test.el — added Phase 22 with 6 new tests:
+    - doing-test-auto-tags-matching — tests longest prefix matching with nested directories
+    - doing-test-auto-tags-applied-on-capture — tests auto-tags are applied when calling doing-now
+    - doing-test-auto-tags-merge-with-user-tags — tests merging of auto-tags with user-provided tags
+    - doing-test-auto-tags-no-duplicates — tests duplicate tag removal with =delete-dups=
+    - doing-test-auto-tags-without-config — tests graceful handling when =doing-auto-tags= is nil
+    - doing-test-auto-tags-customization-type — verifies custom-type is defined
+- learnings
+  - patterns discovered
+    - Using =seq-sort-by= with =#'>= predicate to sort alist by key length (longest first) ensures longest prefix wins
+    - =seq-find= with sorted list implements efficient prefix matching for directory hierarchies
+    - =expand-file-name= is critical for both config keys and =default-directory= to ensure consistent prefix matching
+    - =delete-dups= automatically handles tag deduplication when merging user and auto-tags
+    - =plist-get= with optional properties (tags, project) returns nil when key is missing, allowing clean optional behavior
+    - Customization type =plist :key-type symbol :value-type sexp= allows flexible property configuration
+    - Using =(append user-tags auto-tags)= ensures user-provided tags appear first in the merged list
+    - =plist-put= modifies plist in-place, perfect for conditionally adding project property to entry
+    - Tests use backquoted alists with expanded directory paths to create dynamic configuration: =`((,project-dir :project "name"))=
+    - Testing longest-prefix matching requires creating nested directory hierarchies with =make-directory= and varying =default-directory=
+  - gotchas encountered
+    - CRITICAL: Must recompile all .elc files after source changes or tests will run against old bytecode
+    - Pattern =rm -f *.elc && make compile= ensures clean recompilation before running tests
+    - Auto-tags configuration uses backquoted lists in tests to evaluate directory expansions at test time, not definition time
+    - =doing-auto-tags= must be declared with =defvar= in doing-lib.el for forward reference before actual =defcustom= in doing.el
+    - =seq-sort-by= requires =#'>= (function quote) not ='>= (quote) as the comparison predicate
+    - When =doing-auto-tags= is nil, =seq-find= returns nil gracefully without errors
+    - Tag merging order matters: =(append user-tags auto-tags)= puts user tags first, ensuring user intent takes precedence visually
+    - =plist-put= returns the modified plist but also modifies in-place, so assignment not strictly necessary for our use case
+    - Tests verify tag membership with =member= rather than exact list equality since tag order can vary
+    - Directory prefix matching must use =expand-file-name= on both sides or "/foo/" won't match "/foo" due to trailing slash differences

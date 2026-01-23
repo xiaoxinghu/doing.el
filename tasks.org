@@ -1038,7 +1038,15 @@ This is optional and only available when org-ql is installed.
 
 Context-aware automatic tagging.
 
-** TODO =doing-auto-tags= configuration
+** DONE =doing-auto-tags= configuration
+:PROPERTIES:
+:ID:       B4519DF3-A942-4393-9871-14C29F390CDC
+:CLAUDE_TIME_MS: 245586
+:CLAUDE_COST: 1.0400215499999999
+:CLAUDE_INPUT_TOKENS: 87
+:CLAUDE_OUTPUT_TOKENS: 8378
+:CLAUDE_SESSION_ID: c5a5ed70-7027-4dc3-aa1d-99ad95664b23
+:END:
 
 Directory-based tagging.
 

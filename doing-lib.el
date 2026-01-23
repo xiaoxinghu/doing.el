@@ -18,6 +18,7 @@
 (defvar doing--file-today-name)
 (defvar doing--file-week-name)
 (defvar doing--archive-directory-name)
+(defvar doing-auto-tags)
 
 ;;; File and Directory Utilities
 
@@ -117,6 +118,20 @@ Format matches archive file naming: 2026-W04"
   "Generate unique ID for entry.
 Returns a timestamp-based ID in format: YYYYMMDDTHHMMSS"
   (format-time-string "%Y%m%dT%H%M%S"))
+
+;;; Auto-Tagging
+
+(defun doing--auto-tags-for-directory (&optional dir)
+  "Return auto-tags plist for DIR, or nil.
+DIR defaults to `default-directory'.
+Matches DIR against `doing-auto-tags' and returns the plist
+for the longest matching directory prefix.
+Returns nil if no match found."
+  (let ((dir (expand-file-name (or dir default-directory))))
+    (cdr (seq-find (lambda (entry)
+                     (string-prefix-p (expand-file-name (car entry)) dir))
+                   (seq-sort-by (lambda (e) (length (car e))) #'>
+                                doing-auto-tags)))))
 
 ;;; Entry Parsing Utilities
 

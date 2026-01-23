@@ -63,6 +63,23 @@ This directory will contain:
   :type 'directory
   :group 'doing)
 
+(defcustom doing-auto-tags nil
+  "Alist mapping directory prefixes to tags/properties.
+When `doing-now' is called, the current `default-directory' is matched
+against the directories in this alist (longest prefix wins), and the
+corresponding tags and properties are automatically applied to the entry.
+
+Each entry is (DIRECTORY . PLIST) where PLIST can contain:
+  :project STRING   — set PROJECT property
+  :tags LIST        — add tags (list of strings)
+
+Example:
+  ((\"~/projects/doing.el\" :project \"doing-el\" :tags (\"emacs\"))
+   (\"~/projects/api\"      :project \"api\"      :tags (\"backend\")))"
+  :type '(alist :key-type string
+                :value-type (plist :key-type symbol :value-type sexp))
+  :group 'doing)
+
 ;;; Internal Configuration
 ;; These are not exposed as customization options to keep the model simple.
 

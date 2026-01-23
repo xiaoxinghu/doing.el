@@ -2790,4 +2790,171 @@
   "Test that `doing-search' is interactive."
   (should (commandp 'doing-search)))
 
+;;; Phase 22: Auto-tagging configuration
+
+(ert-deftest doing-test-auto-tags-matching ()
+  "Test that `doing--auto-tags-for-directory' matches longest prefix."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (project-dir (expand-file-name "projects/doing-el" temp-dir))
+         (api-dir (expand-file-name "projects/api" temp-dir))
+         (doing-auto-tags
+          `((,project-dir :project "doing-el" :tags ("emacs" "elisp"))
+            (,(expand-file-name "projects" temp-dir) :project "general" :tags ("work"))
+            (,api-dir :project "api" :tags ("backend" "api")))))
+    (unwind-protect
+        (progn
+          ;; Create test directories
+          (make-directory project-dir t)
+          (make-directory api-dir t)
+
+          ;; Test exact match for doing-el project
+          (let ((default-directory project-dir))
+            (let ((result (doing--auto-tags-for-directory)))
+              (should (equal (plist-get result :project) "doing-el"))
+              (should (equal (plist-get result :tags) '("emacs" "elisp")))))
+
+          ;; Test exact match for api project
+          (let ((default-directory api-dir))
+            (let ((result (doing--auto-tags-for-directory)))
+              (should (equal (plist-get result :project) "api"))
+              (should (equal (plist-get result :tags) '("backend" "api")))))
+
+          ;; Test longest prefix match (subdirectory of project)
+          (let ((subdir (expand-file-name "src" project-dir)))
+            (make-directory subdir t)
+            (let ((default-directory subdir))
+              (let ((result (doing--auto-tags-for-directory)))
+                (should (equal (plist-get result :project) "doing-el"))
+                (should (equal (plist-get result :tags) '("emacs" "elisp"))))))
+
+          ;; Test fallback to parent prefix
+          (let ((default-directory (expand-file-name "projects" temp-dir)))
+            (let ((result (doing--auto-tags-for-directory)))
+              (should (equal (plist-get result :project) "general"))
+              (should (equal (plist-get result :tags) '("work")))))
+
+          ;; Test no match
+          (let ((default-directory temp-dir))
+            (should (null (doing--auto-tags-for-directory)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-auto-tags-applied-on-capture ()
+  "Test that auto-tags are applied when calling `doing-now'."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (project-dir (expand-file-name "projects/doing-el" temp-dir))
+         (doing-auto-tags
+          `((,project-dir :project "doing-el" :tags ("emacs" "elisp")))))
+    (unwind-protect
+        (progn
+          ;; Create project directory
+          (make-directory project-dir t)
+
+          ;; Call doing-now from within project directory
+          (let ((default-directory project-dir))
+            (doing-now "Write tests"))
+
+          ;; Read the entry and verify auto-tags were applied
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (let ((entry (car entries)))
+              (should (equal (plist-get entry :title) "Write tests"))
+              (should (member "emacs" (plist-get entry :tags)))
+              (should (member "elisp" (plist-get entry :tags)))
+              (should (equal (plist-get entry :project) "doing-el")))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-auto-tags-merge-with-user-tags ()
+  "Test that auto-tags are merged with user-provided tags."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (project-dir (expand-file-name "projects/api" temp-dir))
+         (doing-auto-tags
+          `((,project-dir :project "api" :tags ("backend")))))
+    (unwind-protect
+        (progn
+          ;; Create project directory
+          (make-directory project-dir t)
+
+          ;; Call doing-now with user-provided tags
+          (let ((default-directory project-dir))
+            (doing-now "Fix auth bug" '("urgent" "bug")))
+
+          ;; Read the entry and verify tags are merged
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (let ((entry (car entries)))
+              (should (equal (plist-get entry :title) "Fix auth bug"))
+              ;; Should have both user tags and auto-tags
+              (should (member "urgent" (plist-get entry :tags)))
+              (should (member "bug" (plist-get entry :tags)))
+              (should (member "backend" (plist-get entry :tags)))
+              (should (equal (plist-get entry :project) "api")))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-auto-tags-no-duplicates ()
+  "Test that duplicate tags are removed when merging."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (project-dir (expand-file-name "projects/test" temp-dir))
+         (doing-auto-tags
+          `((,project-dir :tags ("test" "dev")))))
+    (unwind-protect
+        (progn
+          ;; Create project directory
+          (make-directory project-dir t)
+
+          ;; Call doing-now with overlapping tags
+          (let ((default-directory project-dir))
+            (doing-now "Run tests" '("test" "ci")))
+
+          ;; Read the entry and verify no duplicates
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (let* ((entry (car entries))
+                   (tags (plist-get entry :tags)))
+              ;; Should have test, dev, and ci (test should appear only once)
+              (should (= (length tags) 3))
+              (should (member "test" tags))
+              (should (member "dev" tags))
+              (should (member "ci" tags))
+              ;; Verify no duplicates by checking length
+              (should (= (length tags) (length (delete-dups (copy-sequence tags))))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-auto-tags-without-config ()
+  "Test that `doing-now' works when `doing-auto-tags' is nil."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (doing-auto-tags nil))
+    (unwind-protect
+        (progn
+          ;; Call doing-now without any auto-tags configured
+          (doing-now "Simple task" '("manual"))
+
+          ;; Read the entry and verify only user tags are present
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (let ((entry (car entries)))
+              (should (equal (plist-get entry :title) "Simple task"))
+              (should (equal (plist-get entry :tags) '("manual")))
+              ;; Project should be nil
+              (should (null (plist-get entry :project))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-auto-tags-customization-type ()
+  "Test that `doing-auto-tags' has proper customization type."
+  (should (boundp 'doing-auto-tags))
+  (should (get 'doing-auto-tags 'custom-type)))
+
 ;;; doing-test.el ends here
