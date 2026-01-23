@@ -970,7 +970,15 @@ Show time totals.
 
 Query and filter entries.
 
-** TODO Basic search (no org-ql)
+** DONE Basic search (no org-ql)
+:PROPERTIES:
+:ID:       5BD3BCDB-EFED-463E-A493-7609606BDCEF
+:CLAUDE_TIME_MS: 237614
+:CLAUDE_COST: 1.2253637000000002
+:CLAUDE_INPUT_TOKENS: 114
+:CLAUDE_OUTPUT_TOKENS: 10006
+:CLAUDE_SESSION_ID: b19901e0-bf44-4a02-a8e9-70cde26d56a3
+:END:
 
 Simple text/tag search without org-ql.
 

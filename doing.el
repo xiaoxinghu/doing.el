@@ -42,6 +42,7 @@
 (require 'doing-view)
 (require 'doing-view-commands)
 (require 'doing-totals)
+(require 'doing-search)
 
 ;;; Customization
 

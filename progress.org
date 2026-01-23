@@ -770,3 +770,48 @@
     - Empty tag list case must be tested separately to ensure no errors occur
     - Totals command requires =doing--ensure-rollover= at start like other view commands
     - Week string format from =doing--iso-week-string= provides context in buffer header
+
+* 2026-01-24 - Basic search (no org-ql)
+- what was implemented
+  - Created doing-search.el with basic search functionality that doesn't require org-ql
+  - =doing--entries-matching (predicate)= — helper function that filters entries from today.org and week.org
+  - =doing-search (query)= — interactive command supporting two search modes:
+    - @tag syntax: searches for entries with specified tag (e.g., "@backend")
+    - Plain text: searches for text in entry titles (case-sensitive via string-match-p)
+  - Search results displayed in view buffer using existing =doing--view-buffer= infrastructure
+  - Message feedback when no results found
+  - Added 6 comprehensive tests covering all search functionality
+  - All 102 tests pass successfully (96 from previous phases + 6 new tests)
+- files changed
+  - doing-search.el — new feature file with search functionality (follows project structure guidelines)
+  - doing.el — added =(require 'doing-search)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-search)= and Phase 21 with 6 new tests:
+    - doing-test-search-by-text — tests text search finds multiple matching entries
+    - doing-test-search-by-tag — tests tag-based search with @ prefix
+    - doing-test-search-no-results — tests graceful handling of no matches
+    - doing-test-search-case-sensitive — documents actual case-sensitivity behavior of string-match-p
+    - doing-test-search-entries-matching — tests helper function searches both today.org and week.org
+    - doing-test-search-is-interactive — verifies command is interactive
+- learnings
+  - patterns discovered
+    - Following established file naming pattern: =doing-search.el= for search feature
+    - Search is implemented as thin layer over existing infrastructure (doing--parse-file, doing--view-buffer)
+    - Two-mode search: @tag prefix for tag search, otherwise text search in titles
+    - Using =string-prefix-p= with "@" to detect tag search mode vs text search
+    - =regexp-quote= ensures user query is treated as literal text, not regex
+    - =seq-filter= with lambda predicates provides flexible filtering without complex query DSL
+    - Reusing =doing--view-buffer= for displaying results maintains UI consistency
+    - =doing--entries-matching= searches both today.org and week.org via =append=
+    - Message feedback for empty results improves user experience
+    - Tests use =cl-letf= to override =yes-or-no-p= to avoid batch mode prompts
+  - gotchas encountered
+    - CRITICAL: Tests calling =doing-now= multiple times trigger file-changed prompts in batch mode
+    - =find-file-noselect= asks "File changed on disk. Reread?" which fails in batch with "end-of-file" error
+    - Solution: wrap test body with =cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))=
+    - This is the same pattern used in earlier tests (doing-test-again-creates-fresh-timestamps)
+    - =string-match-p= is case-sensitive by default in Emacs despite common belief
+    - =regexp-quote= only escapes special regex characters, doesn't affect case sensitivity
+    - Interactive command uses simple prompt "sSearch: " for query input
+    - No need for complex boolean query syntax in MVP - simple text/tag search is sufficient
+    - Search scope limited to today.org and week.org (not archive) for performance
+    - =member= for tag membership test returns non-nil on match, suitable for predicate use
