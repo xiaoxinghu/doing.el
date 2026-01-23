@@ -1205,6 +1205,9 @@ Suggested binding: (global-set-key (kbd \"C-c d\") doing-command-map)")
 #+END_SRC
 
 ** TODO Package finalization
+:PROPERTIES:
+:ID:       8F547570-8467-43FE-AEE0-4ED1EC38D91E
+:END:
 
 Final cleanup.
 
