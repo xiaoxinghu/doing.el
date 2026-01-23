@@ -592,3 +592,46 @@
     - Mocked functions replace the symbol-function, not the variable binding
     - Buffer management still critical: must kill buffers between operations in rollover tests
     - Rollover affects file system state, so tests need proper cleanup with unwind-protect
+
+* 2026-01-24 - View buffer infrastructure
+- what was implemented
+  - Created doing-view.el with core view infrastructure for displaying entries
+  - =doing--view-buffer (name entries &optional group-fn)= — creates temporary buffer in org-mode and displays entries
+  - =doing--format-entry-line (entry)= — formats entry as single line showing duration, title, active marker (*), and tags
+  - =doing--sum-durations (entries)= — computes total duration across entries, handling unfinished entries by using current time
+  - Support for grouped display via optional group-fn parameter (e.g., grouping by date)
+  - View buffers are read-only (view-mode) and use org-mode for syntax highlighting
+  - Added 5 comprehensive tests covering all view infrastructure functionality
+  - All 80 tests pass successfully (75 from previous phases + 5 new tests)
+- files changed
+  - doing-view.el — new feature file with view infrastructure utilities
+  - doing.el — added (require 'doing-view) to load the new module
+  - tests/doing-test.el — added (require 'doing-view) and Phase 17 with 5 new tests:
+    - doing-test-view-buffer-created — validates buffer creation, org-mode, content display, and totals
+    - doing-test-sum-durations — tests duration summing with known values (30 + 60 = 90 minutes)
+    - doing-test-format-entry-line — tests line formatting for finished/unfinished entries with/without tags
+    - doing-test-view-buffer-grouped — tests grouped display by date with headline headers
+    - doing-test-sum-durations-with-unfinished — tests duration calculation with mix of finished/unfinished entries
+- learnings
+  - patterns discovered
+    - View buffers follow naming convention: *doing: NAME* for easy identification and buffer management
+    - Using =pop-to-buffer= to display view buffer is the standard Emacs pattern for showing results
+    - =view-mode= provides read-only buffer with standard navigation keys (q to quit, etc.)
+    - =seq-group-by= is perfect for grouping entries by arbitrary criteria (dates, tags, etc.)
+    - Format string approach for entry lines: "- [DURATION] TITLE MARKER TAGS" provides clean, scannable output
+    - Active marker (*) distinguishes unfinished entries visually in reports
+    - Duration aggregation treats unfinished entries as "still running" by using current time as end
+    - =let ((inhibit-read-only t))= allows writing to read-only buffers temporarily
+    - Testing view buffers requires creating buffer, checking contents, and cleaning up with kill-buffer
+    - =search-forward= in test validates buffer content without fragile string matching
+  - gotchas encountered
+    - Must call =erase-buffer= with =inhibit-read-only= set to t when regenerating view buffers
+    - =seq-group-by= returns alist of (KEY . ENTRIES-LIST), where KEY is the grouping key
+    - View buffers persist until killed, so tests must clean up with =kill-buffer= to avoid interference
+    - =pop-to-buffer= may split windows or reuse existing window depending on display-buffer configuration
+    - Unfinished entries have nil :ended property, must use =or= to provide current time for calculations
+    - Duration formatting with =doing--duration-format= respects =org-duration-format= customization
+    - =goto-char (point-min)= before =view-mode= ensures buffer starts at top when displayed
+    - Tests with =string-match-p= for active marker must escape the asterisk: "\\*" not "*"
+    - Group function receives individual entry, must extract grouping key (e.g., date from timestamp)
+    - Empty buffer cleanup in tests prevents "Buffer still has clients" warnings

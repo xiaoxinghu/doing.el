@@ -16,6 +16,7 @@
 (require 'doing-note)
 (require 'doing-again)
 (require 'doing-rollover)
+(require 'doing-view)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -1997,5 +1998,159 @@
       ;; Cleanup
       (when (file-exists-p temp-dir)
         (delete-directory temp-dir t)))))
+
+;;; Phase 17: View buffer infrastructure
+
+(ert-deftest doing-test-view-buffer-created ()
+  "Test that `doing--view-buffer' creates a buffer and displays entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (test-file (doing--file-today)))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create test entries
+          (doing--append-entry-to-file
+           (list :id "entry1"
+                 :title "First task"
+                 :started "[2026-01-23 Thu 10:00]"
+                 :ended "[2026-01-23 Thu 10:30]"
+                 :tags '("work"))
+           test-file)
+          (doing--append-entry-to-file
+           (list :id "entry2"
+                 :title "Second task"
+                 :started "[2026-01-23 Thu 10:30]"
+                 :ended "[2026-01-23 Thu 11:00]"
+                 :tags '("dev"))
+           test-file)
+          ;; Parse entries
+          (let ((entries (doing--parse-file test-file)))
+            ;; Create view buffer
+            (doing--view-buffer "test" entries)
+            ;; Buffer should exist
+            (should (get-buffer "*doing: test*"))
+            ;; Buffer should be in org-mode
+            (with-current-buffer "*doing: test*"
+              (should (eq major-mode 'org-mode))
+              ;; Should contain entry titles
+              (goto-char (point-min))
+              (should (search-forward "First task" nil t))
+              (goto-char (point-min))
+              (should (search-forward "Second task" nil t))
+              ;; Should contain total
+              (goto-char (point-min))
+              (should (search-forward "Total:" nil t)))
+            ;; Cleanup buffer
+            (kill-buffer "*doing: test*")))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-sum-durations ()
+  "Test that `doing--sum-durations' correctly sums entry durations."
+  ;; Create test entries with known durations
+  (let ((entries (list
+                  (list :id "entry1"
+                        :title "Task 1"
+                        :started "[2026-01-23 Thu 10:00]"
+                        :ended "[2026-01-23 Thu 10:30]")  ; 30 minutes
+                  (list :id "entry2"
+                        :title "Task 2"
+                        :started "[2026-01-23 Thu 11:00]"
+                        :ended "[2026-01-23 Thu 12:00]")))) ; 60 minutes
+    ;; Total should be 90 minutes
+    (let ((total (doing--sum-durations entries)))
+      (should (= total 90.0)))))
+
+(ert-deftest doing-test-format-entry-line ()
+  "Test that `doing--format-entry-line' formats entries correctly."
+  ;; Test finished entry with tags
+  (let* ((entry (list :id "entry1"
+                      :title "Finished task"
+                      :started "[2026-01-23 Thu 10:00]"
+                      :ended "[2026-01-23 Thu 11:00]"
+                      :tags '("work" "coding")))
+         (line (doing--format-entry-line entry)))
+    ;; Should contain title
+    (should (string-match-p "Finished task" line))
+    ;; Should contain tags
+    (should (string-match-p ":work:coding:" line))
+    ;; Should NOT contain active marker
+    (should-not (string-match-p "\\*" line))
+    ;; Should contain duration
+    (should (string-match-p "\\[.*\\]" line)))
+  ;; Test unfinished entry without tags
+  (let* ((entry (list :id "entry2"
+                      :title "Active task"
+                      :started "[2026-01-23 Thu 10:00]"))
+         (line (doing--format-entry-line entry)))
+    ;; Should contain title
+    (should (string-match-p "Active task" line))
+    ;; Should contain active marker
+    (should (string-match-p "\\*" line))
+    ;; Should NOT contain tags section
+    (should-not (string-match-p "::" line))))
+
+(ert-deftest doing-test-view-buffer-grouped ()
+  "Test that `doing--view-buffer' correctly groups entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (test-file (doing--file-today)))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create entries from different dates
+          (doing--append-entry-to-file
+           (list :id "entry1"
+                 :title "Monday task"
+                 :started "[2026-01-20 Mon 10:00]"
+                 :ended "[2026-01-20 Mon 11:00]")
+           test-file)
+          (doing--append-entry-to-file
+           (list :id "entry2"
+                 :title "Tuesday task"
+                 :started "[2026-01-21 Tue 10:00]"
+                 :ended "[2026-01-21 Tue 11:00]")
+           test-file)
+          ;; Parse entries
+          (let ((entries (doing--parse-file test-file)))
+            ;; Create grouped view by date
+            (doing--view-buffer "grouped-test" entries
+                                (lambda (e) (doing--timestamp-date (plist-get e :started))))
+            ;; Buffer should exist
+            (should (get-buffer "*doing: grouped-test*"))
+            ;; Buffer should contain date headers
+            (with-current-buffer "*doing: grouped-test*"
+              (goto-char (point-min))
+              (should (search-forward "* 2026-01-20" nil t))
+              (goto-char (point-min))
+              (should (search-forward "* 2026-01-21" nil t))
+              (goto-char (point-min))
+              (should (search-forward "Monday task" nil t))
+              (goto-char (point-min))
+              (should (search-forward "Tuesday task" nil t)))
+            ;; Cleanup buffer
+            (kill-buffer "*doing: grouped-test*")))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-sum-durations-with-unfinished ()
+  "Test that `doing--sum-durations' handles unfinished entries."
+  ;; Create mix of finished and unfinished entries
+  (let* ((now (doing--timestamp-now))
+         (entries (list
+                   (list :id "entry1"
+                         :title "Finished"
+                         :started "[2026-01-23 Thu 10:00]"
+                         :ended "[2026-01-23 Thu 10:30]")  ; 30 minutes
+                   (list :id "entry2"
+                         :title "Unfinished"
+                         :started now))))  ; Variable duration to now
+    ;; Should not error and should return a positive number
+    (let ((total (doing--sum-durations entries)))
+      (should (numberp total))
+      (should (>= total 30.0)))))  ; At least 30 from finished entry
 
 ;;; doing-test.el ends here

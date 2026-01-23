@@ -39,6 +39,7 @@
 (require 'doing-note)
 (require 'doing-again)
 (require 'doing-rollover)
+(require 'doing-view)
 
 ;;; Customization
 

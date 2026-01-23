@@ -704,7 +704,15 @@ Add =(doing--ensure-rollover)= at start of =doing-now=, =doing-current=, views.
 
 Display entries in temporary buffers.
 
-** TODO View buffer infrastructure
+** DONE View buffer infrastructure
+:PROPERTIES:
+:ID:       D22B3AF0-C497-4C42-B502-77C38BB9B150
+:CLAUDE_TIME_MS: 236027
+:CLAUDE_COST: 1.15506065
+:CLAUDE_INPUT_TOKENS: 72
+:CLAUDE_OUTPUT_TOKENS: 9779
+:CLAUDE_SESSION_ID: 689b7bc7-788b-4ca5-82d4-60e961cc3207
+:END:
 
 Shared code for views.
 
