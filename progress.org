@@ -18,3 +18,31 @@
   - gotchas encountered
     - Need to use =expand-file-name= in default value for =doing-directory= to ensure absolute path
     - Package-Requires uses parenthesized list format: =((emacs "27.1") (org "9.0"))=
+
+* 2026-01-23 - File and directory utilities
+- what was implemented
+  - Created doing-lib.el with core file/directory utilities
+  - =doing--directory ()= — creates and returns the doing directory with archive subdirectory
+  - =doing--file-today ()= — returns full path to today.org
+  - =doing--file-week ()= — returns full path to week.org
+  - =doing--file-archive (year week)= — returns path to archive/YYYY-WNN.org with zero-padded week numbers
+  - =doing--ensure-directory ()= — ensures directory structure exists
+  - =doing--ensure-file (path &optional title)= — creates file with Org header if missing
+  - Added comprehensive tests covering all utilities
+  - Updated doing.el and doing-test.el to require doing-lib
+- files changed
+  - doing-lib.el — new file with internal utilities (double-hyphen prefix for internal functions)
+  - tests/doing-test.el — added 4 new tests for file/directory operations
+  - doing.el — added =(require 'doing-lib)=
+- learnings
+  - patterns discovered
+    - Using =make-directory= with =t= argument creates parent directories automatically
+    - Combining =file-name-sans-extension= and =file-name-nondirectory= to derive titles from filenames
+    - =doing--directory= creates both main and archive dirs in one call for convenience
+    - Testing with temporary directories using =make-temp-file= with =t= flag and =unwind-protect= for cleanup
+    - =write-region= is the standard way to create new files from a temp buffer
+  - gotchas encountered
+    - Archive file path format uses =%04d= and =%02d= to ensure proper zero-padding (2026-W01, not 2026-W1)
+    - =doing--ensure-directory= is a thin wrapper that just calls =doing--directory= since that already creates directories
+    - Must call =expand-file-name= in all path functions to ensure absolute paths
+    - Tests need to verify both file existence AND that files are directories with =file-directory-p=
