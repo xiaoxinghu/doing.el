@@ -69,3 +69,5 @@ props="(
 emacs --batch tasks.org \
   -l ./batch.el \
   --eval "(my-org-mark-done \"$task_id\" '$props)"
+
+git add tasks.org && git commit --amend --no-edit
