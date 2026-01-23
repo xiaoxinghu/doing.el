@@ -635,3 +635,45 @@
     - Tests with =string-match-p= for active marker must escape the asterisk: "\\*" not "*"
     - Group function receives individual entry, must extract grouping key (e.g., date from timestamp)
     - Empty buffer cleanup in tests prevents "Buffer still has clients" warnings
+
+* 2026-01-24 - View commands: today, yesterday, week
+- what was implemented
+  - Created doing-view-commands.el with three standard view commands
+  - =doing-view-today= — displays all entries from today.org with duration totals
+  - =doing-view-yesterday= — filters and displays entries from yesterday across today.org and week.org
+  - =doing-view-week= — displays current week's entries grouped by date with daily headers
+  - All commands call =doing--ensure-rollover= before displaying to ensure files are up to date
+  - Commands use existing view infrastructure (=doing--view-buffer=, =doing--format-entry-line=, =doing--sum-durations=)
+  - Added 5 comprehensive tests covering all view command functionality
+  - All 85 tests pass successfully (80 from previous phases + 5 new tests)
+- files changed
+  - doing-view-commands.el — new feature file with three standard view commands
+  - doing.el — added (require 'doing-view-commands) to load the new module
+  - tests/doing-test.el — added (require 'doing-view-commands) and Phase 18 with 5 new tests:
+    - doing-test-view-today-shows-entries — validates buffer creation, entry display, tag display, and totals
+    - doing-test-view-yesterday-filters-correctly — tests filtering by date across multiple files
+    - doing-test-view-week-groups-by-date — tests grouped display with date headers for week view
+    - doing-test-view-today-empty — tests graceful handling of empty file with 0:00 total
+    - doing-test-view-commands-are-interactive — verifies all three commands are interactive
+- learnings
+  - patterns discovered
+    - Following established file naming pattern: =doing-view-commands.el= for user-facing view commands
+    - View commands are thin wrappers around =doing--view-buffer= infrastructure, providing specific filtering/grouping
+    - =doing-view-today= is simplest: just parse and display today.org directly
+    - =doing-view-yesterday= requires filtering across two files (today.org and week.org) using date comparison
+    - =doing-view-week= groups entries by date using lambda function passed to =doing--view-buffer=
+    - All view commands follow same pattern: ensure rollover, parse files, filter/group if needed, display via =doing--view-buffer=
+    - Testing view commands requires creating test entries with specific timestamps, calling command, verifying buffer contents
+    - Using =format-time-string= with =time-subtract= and =days-to-time= to generate dynamic test dates
+    - Tests must dynamically compute weekday names (=%a=) to match actual dates, not hardcode them
+  - gotchas encountered
+    - CRITICAL BUG: Initial implementation used =string-prefix-p= to match date against full timestamp =[2026-01-23 Fri 10:00]=
+    - This failed because timestamp starts with =[= not the date, so "2026-01-23" is not a prefix
+    - Fix: use =doing--timestamp-date= to extract date first, then =string== for exact match
+    - Bug manifested as empty view buffer because filter excluded all entries
+    - Test initially used hardcoded weekday names (Thu, Fri) which would fail on different dates
+    - Fix: compute weekday dynamically using =format-time-string "%a"= with the actual date's time value
+    - View buffer contents are populated via =doing--view-buffer= which handles all formatting internally
+    - Tests verify buffer contents with =search-forward= which is robust to formatting variations
+    - Must kill view buffers after tests to prevent interference: =(kill-buffer "*doing: NAME*")=
+    - Empty entry lists display correctly with "Total: 0:00" thanks to =doing--sum-durations= handling empty lists

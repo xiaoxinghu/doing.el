@@ -778,7 +778,15 @@ Optional GROUP-FN groups entries (e.g., by date)."
 - =doing-test-view-buffer-created=
 - =doing-test-sum-durations=
 
-** TODO =doing-view-today=, =doing-view-yesterday=, =doing-view-week=
+** DONE =doing-view-today=, =doing-view-yesterday=, =doing-view-week=
+:PROPERTIES:
+:ID:       73A9D4C0-E540-4CCD-95A6-579D95E7FA8A
+:CLAUDE_TIME_MS: 349980
+:CLAUDE_COST: 1.6242217500000007
+:CLAUDE_INPUT_TOKENS: 83
+:CLAUDE_OUTPUT_TOKENS: 12968
+:CLAUDE_SESSION_ID: 67c98b3a-a230-44d0-8d72-55eed2e5cc75
+:END:
 
 Standard view commands.
 

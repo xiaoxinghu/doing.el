@@ -17,6 +17,7 @@
 (require 'doing-again)
 (require 'doing-rollover)
 (require 'doing-view)
+(require 'doing-view-commands)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -2152,5 +2153,175 @@
     (let ((total (doing--sum-durations entries)))
       (should (numberp total))
       (should (>= total 30.0)))))  ; At least 30 from finished entry
+
+;;; Phase 18: View commands tests
+
+(ert-deftest doing-test-view-today-shows-entries ()
+  "Test that `doing-view-today' displays today's entries."
+  (let* ((temp-dir (make-temp-file "doing-test" t))
+         (doing-directory temp-dir)
+         (test-file (doing--file-today)))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create entries for today
+          (doing--append-entry-to-file
+           (list :id "entry1"
+                 :title "First task"
+                 :tags '("work")
+                 :started (doing--timestamp-now)
+                 :ended (doing--timestamp-now))
+           test-file)
+          (doing--append-entry-to-file
+           (list :id "entry2"
+                 :title "Second task"
+                 :tags '("personal")
+                 :started (doing--timestamp-now))
+           test-file)
+          ;; Call doing-view-today
+          (doing-view-today)
+          ;; Buffer should exist
+          (should (get-buffer "*doing: today*"))
+          ;; Buffer should contain entries
+          (with-current-buffer "*doing: today*"
+            (goto-char (point-min))
+            (should (search-forward "First task" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Second task" nil t))
+            (goto-char (point-min))
+            (should (search-forward ":work:" nil t))
+            (goto-char (point-min))
+            (should (search-forward ":personal:" nil t))
+            ;; Should show total
+            (goto-char (point-min))
+            (should (search-forward "Total:" nil t)))
+          ;; Cleanup buffer
+          (kill-buffer "*doing: today*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-yesterday-filters-correctly ()
+  "Test that `doing-view-yesterday' filters yesterday's entries."
+  (let* ((temp-dir (make-temp-file "doing-test" t))
+         (doing-directory temp-dir)
+         (today-file (doing--file-today))
+         (week-file (doing--file-week))
+         (yesterday-time (time-subtract (current-time) (days-to-time 1)))
+         (yesterday (format-time-string "%Y-%m-%d" yesterday-time))
+         (yesterday-day (format-time-string "%a" yesterday-time))
+         (today-time (current-time))
+         (today (format-time-string "%Y-%m-%d" today-time))
+         (today-day (format-time-string "%a" today-time)))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create entries for yesterday in week.org
+          (doing--append-entry-to-file
+           (list :id "entry1"
+                 :title "Yesterday task"
+                 :started (format "[%s %s 10:00]" yesterday yesterday-day)
+                 :ended (format "[%s %s 11:00]" yesterday yesterday-day))
+           week-file)
+          ;; Create entry for today in today.org
+          (doing--append-entry-to-file
+           (list :id "entry2"
+                 :title "Today task"
+                 :started (format "[%s %s 10:00]" today today-day))
+           today-file)
+          ;; Call doing-view-yesterday
+          (doing-view-yesterday)
+          ;; Buffer should exist
+          (should (get-buffer "*doing: yesterday*"))
+          ;; Buffer should contain only yesterday's entry
+          (with-current-buffer "*doing: yesterday*"
+            (goto-char (point-min))
+            (should (search-forward "Yesterday task" nil t))
+            (goto-char (point-min))
+            (should-not (search-forward "Today task" nil t)))
+          ;; Cleanup buffer
+          (kill-buffer "*doing: yesterday*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-week-groups-by-date ()
+  "Test that `doing-view-week' groups entries by date."
+  (let* ((temp-dir (make-temp-file "doing-test" t))
+         (doing-directory temp-dir)
+         (today-file (doing--file-today))
+         (week-file (doing--file-week)))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create entries from different days this week
+          (doing--append-entry-to-file
+           (list :id "entry1"
+                 :title "Monday task"
+                 :started "[2026-01-20 Mon 10:00]"
+                 :ended "[2026-01-20 Mon 11:00]")
+           week-file)
+          (doing--append-entry-to-file
+           (list :id "entry2"
+                 :title "Tuesday task"
+                 :started "[2026-01-21 Tue 10:00]"
+                 :ended "[2026-01-21 Tue 11:00]")
+           week-file)
+          (doing--append-entry-to-file
+           (list :id "entry3"
+                 :title "Today task"
+                 :started (doing--timestamp-now))
+           today-file)
+          ;; Call doing-view-week
+          (doing-view-week)
+          ;; Buffer should exist
+          (should (get-buffer "*doing: this week*"))
+          ;; Buffer should contain date headers and entries
+          (with-current-buffer "*doing: this week*"
+            (goto-char (point-min))
+            (should (search-forward "* 2026-01-20" nil t))
+            (goto-char (point-min))
+            (should (search-forward "* 2026-01-21" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Monday task" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Tuesday task" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Today task" nil t))
+            ;; Should show total
+            (goto-char (point-min))
+            (should (search-forward "Total:" nil t)))
+          ;; Cleanup buffer
+          (kill-buffer "*doing: this week*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-today-empty ()
+  "Test that `doing-view-today' handles empty file gracefully."
+  (let* ((temp-dir (make-temp-file "doing-test" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Call doing-view-today with empty file
+          (doing-view-today)
+          ;; Buffer should exist even with no entries
+          (should (get-buffer "*doing: today*"))
+          (with-current-buffer "*doing: today*"
+            ;; Should still show total (0:00)
+            (goto-char (point-min))
+            (should (search-forward "Total:" nil t)))
+          ;; Cleanup buffer
+          (kill-buffer "*doing: today*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-commands-are-interactive ()
+  "Test that view commands are interactive."
+  (should (commandp 'doing-view-today))
+  (should (commandp 'doing-view-yesterday))
+  (should (commandp 'doing-view-week)))
 
 ;;; doing-test.el ends here

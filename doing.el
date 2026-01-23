@@ -40,6 +40,7 @@
 (require 'doing-again)
 (require 'doing-rollover)
 (require 'doing-view)
+(require 'doing-view-commands)
 
 ;;; Customization
 
