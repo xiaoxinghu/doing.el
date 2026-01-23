@@ -519,9 +519,14 @@ Append to entry body.
 - =doing-test-note-appends-text=
 - =doing-test-note-error-when-no-current=
 
-** TODO =doing-now= enhancement — auto-finish previous
+** DONE =doing-now= enhancement — auto-finish previous
 :PROPERTIES:
 :ID:       4E763D6D-4125-4B29-A2DB-9E5C0C4CA494
+:CLAUDE_TIME_MS: 368194
+:CLAUDE_COST: 1.3390986500000004
+:CLAUDE_INPUT_TOKENS: 61
+:CLAUDE_OUTPUT_TOKENS: 9791
+:CLAUDE_SESSION_ID: faa91d6f-6983-4e8a-8a64-9c55400dcd43
 :END:
 
 Extend =doing-now= to auto-finish.
