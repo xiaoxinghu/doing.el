@@ -41,6 +41,7 @@
 (require 'doing-rollover)
 (require 'doing-view)
 (require 'doing-view-commands)
+(require 'doing-totals)
 
 ;;; Customization
 

@@ -18,6 +18,7 @@
 (require 'doing-rollover)
 (require 'doing-view)
 (require 'doing-view-commands)
+(require 'doing-totals)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -2516,5 +2517,119 @@
   "Test that view-recent and view-since are interactive."
   (should (commandp 'doing-view-recent))
   (should (commandp 'doing-view-since)))
+
+;;; Phase 20: Duration aggregation and totals
+
+(ert-deftest doing-test-group-by-tag ()
+  "Test that `doing--group-by-tag' correctly groups entries by tags."
+  (let ((entries (list
+                  (list :id "1" :title "Task 1" :tags '("emacs" "code")
+                        :started "[2026-01-24 Fri 10:00]"
+                        :ended "[2026-01-24 Fri 10:30]")
+                  (list :id "2" :title "Task 2" :tags '("emacs" "design")
+                        :started "[2026-01-24 Fri 11:00]"
+                        :ended "[2026-01-24 Fri 12:00]")
+                  (list :id "3" :title "Task 3" :tags '("code")
+                        :started "[2026-01-24 Fri 14:00]"
+                        :ended "[2026-01-24 Fri 14:45]"))))
+    (let ((grouped (doing--group-by-tag entries)))
+      ;; Should have 3 groups: emacs, code, design
+      (should (= (length grouped) 3))
+      ;; "emacs" should have 2 entries (tasks 1 and 2)
+      (let ((emacs-group (cdr (assoc "emacs" grouped))))
+        (should (= (length emacs-group) 2)))
+      ;; "code" should have 2 entries (tasks 1 and 3)
+      (let ((code-group (cdr (assoc "code" grouped))))
+        (should (= (length code-group) 2)))
+      ;; "design" should have 1 entry (task 2)
+      (let ((design-group (cdr (assoc "design" grouped))))
+        (should (= (length design-group) 1))))))
+
+(ert-deftest doing-test-totals-by-tag ()
+  "Test that `doing--totals-by-tag' computes totals and sorts correctly."
+  (let ((entries (list
+                  ;; 30 minutes task with tags "emacs" and "code"
+                  (list :id "1" :title "Task 1" :tags '("emacs" "code")
+                        :started "[2026-01-24 Fri 10:00]"
+                        :ended "[2026-01-24 Fri 10:30]")
+                  ;; 60 minutes task with tags "emacs" and "design"
+                  (list :id "2" :title "Task 2" :tags '("emacs" "design")
+                        :started "[2026-01-24 Fri 11:00]"
+                        :ended "[2026-01-24 Fri 12:00]")
+                  ;; 45 minutes task with tag "code"
+                  (list :id "3" :title "Task 3" :tags '("code")
+                        :started "[2026-01-24 Fri 14:00]"
+                        :ended "[2026-01-24 Fri 14:45]"))))
+    (let ((totals (doing--totals-by-tag entries)))
+      ;; Should have 3 entries
+      (should (= (length totals) 3))
+      ;; Entries should be sorted by duration (descending)
+      ;; emacs: 30 + 60 = 90 minutes (highest)
+      ;; code: 30 + 45 = 75 minutes
+      ;; design: 60 minutes
+      (let ((first (car totals)))
+        (should (string= (car first) "emacs"))
+        (should (= (cdr first) 90.0)))
+      (let ((second (cadr totals)))
+        (should (string= (car second) "code"))
+        (should (= (cdr second) 75.0)))
+      (let ((third (caddr totals)))
+        (should (string= (car third) "design"))
+        (should (= (cdr third) 60.0))))))
+
+(ert-deftest doing-test-totals-displays ()
+  "Test that `doing-totals' displays totals buffer with correct content."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create test entries with known durations
+          (doing--append-entry-to-file
+           (list :id "1" :title "Emacs work" :tags '("emacs")
+                 :started "[2026-01-24 Fri 10:00]"
+                 :ended "[2026-01-24 Fri 10:30]")
+           (doing--file-today))
+          (doing--append-entry-to-file
+           (list :id "2" :title "Code review" :tags '("code")
+                 :started "[2026-01-24 Fri 11:00]"
+                 :ended "[2026-01-24 Fri 12:00]")
+           (doing--file-today))
+          ;; Call doing-totals
+          (doing-totals)
+          ;; Verify buffer exists
+          (should (get-buffer "*doing: totals*"))
+          (with-current-buffer "*doing: totals*"
+            (let ((content (buffer-string)))
+              ;; Should contain week number
+              (should (string-match-p "Totals for" content))
+              ;; Should contain tag names
+              (should (string-match-p "emacs" content))
+              (should (string-match-p "code" content))
+              ;; Should contain total
+              (should (string-match-p "Total" content))
+              ;; Should have durations (digits followed by colon)
+              (should (string-match-p "[0-9]+:[0-9]+" content))))
+          (kill-buffer "*doing: totals*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-totals-is-interactive ()
+  "Test that `doing-totals' is interactive."
+  (should (commandp 'doing-totals)))
+
+(ert-deftest doing-test-totals-with-no-tags ()
+  "Test that totals handles entries without tags gracefully."
+  (let ((entries (list
+                  (list :id "1" :title "Task without tags"
+                        :started "[2026-01-24 Fri 10:00]"
+                        :ended "[2026-01-24 Fri 10:30]"))))
+    ;; Group-by-tag should return empty list for entries without tags
+    (let ((grouped (doing--group-by-tag entries)))
+      (should (null grouped)))
+    ;; Totals-by-tag should return empty list
+    (let ((totals (doing--totals-by-tag entries)))
+      (should (null totals)))))
 
 ;;; doing-test.el ends here

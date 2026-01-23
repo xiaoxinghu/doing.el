@@ -719,3 +719,54 @@
     - =(days-to-time 1)= returns time value for 1 day, used with =time-subtract= to compute yesterday
     - Tests create entries with explicit timestamps to ensure predictable sorting behavior
     - Buffer cleanup in tests prevents "Buffer still has clients" warnings from =pop-to-buffer=
+
+* 2026-01-24 - Duration aggregation utilities
+- what was implemented
+  - Created doing-totals.el with duration aggregation and reporting functionality
+  - =doing--group-by-tag= — groups entries by tag into alist of (TAG . ENTRIES)
+    - Each entry can appear in multiple groups if it has multiple tags
+    - Uses assoc to build groups incrementally
+  - =doing--totals-by-tag= — computes total duration for each tag and sorts descending
+    - Leverages =doing--group-by-tag= to get grouped entries
+    - Uses =doing--sum-durations= to calculate totals per tag
+    - Sorts results by duration using =seq-sort-by= with =#'>= predicate
+  - =doing-totals= — interactive command displaying time totals buffer
+    - Shows totals for current week grouped by tag
+    - Displays week number using =doing--iso-week-string=
+    - Formats as aligned table with tag names and durations
+    - Includes overall total at bottom
+    - Uses =view-mode= for read-only buffer
+  - Added 5 comprehensive tests covering all functionality
+  - All 96 tests pass successfully (91 from previous phases + 5 new tests)
+- files changed
+  - doing-totals.el — new feature file with aggregation utilities and totals command
+  - doing.el — added =(require 'doing-totals)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-totals)= and Phase 20 with 5 new tests:
+    - doing-test-group-by-tag — tests grouping by multiple tags per entry
+    - doing-test-totals-by-tag — tests duration computation and descending sort
+    - doing-test-totals-displays — tests buffer creation, content, week number, formatting
+    - doing-test-totals-is-interactive — verifies command is interactive
+    - doing-test-totals-with-no-tags — tests graceful handling of entries without tags
+- learnings
+  - patterns discovered
+    - Following established file naming pattern: =doing-totals.el= for totals and aggregation features
+    - Aggregation uses two-step process: group entries first, then compute totals per group
+    - =assoc= with =push= pattern for building alists: check existing, append if found, create new if not
+    - Using =cdr= to get entry list from alist group: =(cdr (assoc tag result))=
+    - =seq-sort-by= with =#'>= predicate sorts alist by value in descending order
+    - =mapcar= with lambda transforms grouped alist to totals alist: =(tag . entries)= -> =(tag . minutes)=
+    - Buffer formatting with =format= and =%-16s= for aligned columns creates readable tables
+    - Consistent buffer naming: =*doing: totals*= follows established view buffer pattern
+    - Testing aggregation requires creating test entries with known durations for verification
+    - Empty groups (entries without tags) should return =nil= not empty list for clean handling
+  - gotchas encountered
+    - Must handle entries with multiple tags by adding entry to each tag's group
+    - =assoc= returns cons cell =(key . value)=, need =cdr= to get value (entry list)
+    - Building groups with =push= creates reversed order, but doesn't affect correctness here
+    - =doing--sum-durations= already exists in doing-view.el, can reuse it directly
+    - Sort predicate is =#'>= (function quote) not ='>= (quote character)
+    - Buffer content testing uses =string-match-p= for flexible matching of formatted output
+    - Duration format varies by =org-duration-format= setting, tests must be flexible
+    - Empty tag list case must be tested separately to ensure no errors occur
+    - Totals command requires =doing--ensure-rollover= at start like other view commands
+    - Week string format from =doing--iso-week-string= provides context in buffer header

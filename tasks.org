@@ -885,7 +885,15 @@ Uses =org-read-date= for interactive date input!
 
 Time totals and aggregation.
 
-** TODO Duration aggregation utilities
+** DONE Duration aggregation utilities
+:PROPERTIES:
+:ID:       E8D5E1A4-2A3E-47E6-BC58-F861BE3E8C78
+:CLAUDE_TIME_MS: 237206
+:CLAUDE_COST: 1.2819026500000004
+:CLAUDE_INPUT_TOKENS: 95
+:CLAUDE_OUTPUT_TOKENS: 9159
+:CLAUDE_SESSION_ID: ec8261b3-6405-4c06-ad20-6baeae00ad30
+:END:
 
 Group and sum by tag/project.
 
