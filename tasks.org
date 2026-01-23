@@ -665,7 +665,15 @@ Archive old weeks.
 - =doing-test-rollover-weekly-archives=
 - =doing-test-rollover-weekly-correct-filename=
 
-** TODO Integrate rollover into commands
+** DONE Integrate rollover into commands
+:PROPERTIES:
+:ID:       D0ED89F8-A16A-403D-8BA1-AA71B2AB567C
+:CLAUDE_TIME_MS: 232000
+:CLAUDE_COST: 1.1379542999999999
+:CLAUDE_INPUT_TOKENS: 63
+:CLAUDE_OUTPUT_TOKENS: 8085
+:CLAUDE_SESSION_ID: c9ef34a8-0ab5-4627-9c6e-617adf12dced
+:END:
 
 Call rollover lazily.
 

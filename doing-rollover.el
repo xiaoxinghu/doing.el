@@ -61,6 +61,25 @@ Returns the number of entries moved, or nil if none were moved."
             (setq moved (1+ moved))))))
     (when (> moved 0) moved)))
 
+;;; Lazy Rollover Integration
+
+(defvar doing--last-rollover-time nil
+  "Time of last rollover check.")
+
+(defun doing--ensure-rollover ()
+  "Perform rollover if needed (once per hour max).
+This function checks if at least one hour has passed since the last
+rollover check. If so, it performs both daily and weekly rollover
+operations. This prevents excessive rollover attempts while ensuring
+files stay organized."
+  (when (or (null doing--last-rollover-time)
+            (> (float-time (time-subtract (current-time)
+                                          doing--last-rollover-time))
+               3600))  ; 1 hour = 3600 seconds
+    (doing--rollover-daily)
+    (doing--rollover-weekly)
+    (setq doing--last-rollover-time (current-time))))
+
 (provide 'doing-rollover)
 
 ;;; doing-rollover.el ends here

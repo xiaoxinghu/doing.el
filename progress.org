@@ -553,3 +553,42 @@
     - doing--file-archive with zero-padded week numbers ensures correct lexicographic sorting (2026-W01.org, not 2026-W1.org)
     - Rollover returns nil (not 0) when no entries moved, consistent with daily rollover behavior
     - org-cut-subtree messages "Cut: Subtree(s)" appear in test output which is expected org behavior
+
+* 2026-01-24 - Integrate rollover into commands
+- what was implemented
+  - Added doing--ensure-rollover function to doing-rollover.el with throttling mechanism
+  - Function checks if at least one hour (3600 seconds) has passed since last rollover
+  - Uses defvar doing--last-rollover-time to track last rollover timestamp
+  - Integrated rollover calls into doing-now and doing-current commands
+  - Added require 'doing-rollover to both command files
+  - Added 3 comprehensive tests for rollover integration
+  - All 75 tests pass successfully (72 from previous phases + 3 new tests)
+- files changed
+  - doing-rollover.el — added doing--ensure-rollover function and doing--last-rollover-time variable
+  - doing-now.el — added (require 'doing-rollover) and call to doing--ensure-rollover at start
+  - doing-current.el — added (require 'doing-rollover) and call to doing--ensure-rollover at start
+  - tests/doing-test.el — added Phase 16 with 3 new tests:
+    - doing-test-ensure-rollover-throttled — tests throttling with time-subtract and seconds-to-time
+    - doing-test-ensure-rollover-called-by-commands — tests commands call rollover using cl-letf mocking
+    - doing-test-rollover-with-old-data — tests end-to-end rollover with yesterday's entry
+- learnings
+  - patterns discovered
+    - Throttling pattern: check if variable is nil OR time difference exceeds threshold
+    - Using float-time with time-subtract to compute elapsed seconds: (float-time (time-subtract now then))
+    - seconds-to-time converts integer seconds to time value for arithmetic: (seconds-to-time 7200)
+    - time-subtract works in reverse: (time-subtract (current-time) (seconds-to-time 7200)) gives 2 hours ago
+    - Mocking functions in tests with cl-letf: (cl-letf (((symbol-function 'foo) (lambda () ...))) ...)
+    - Lazy rollover approach: only call rollover from user-facing commands, not internal utilities
+    - Testing throttling requires manipulating the timestamp variable directly to simulate time passing
+    - Using 3600 seconds (1 hour) as throttle interval balances responsiveness with performance
+  - gotchas encountered
+    - Must add (require 'doing-rollover) to any file that calls doing--ensure-rollover
+    - defvar creates a global variable that persists across function calls (needed for throttling)
+    - Tests must set doing--last-rollover-time to nil to ensure clean state
+    - Cannot actually sleep for an hour in tests, must simulate time passage with setq
+    - time-subtract returns a time value, not seconds - must use float-time to get numeric value
+    - equal vs eq: time values must use equal for comparison, not eq
+    - cl-letf requires lambda form with underscore for ignored arguments: (lambda (_) ...)
+    - Mocked functions replace the symbol-function, not the variable binding
+    - Buffer management still critical: must kill buffers between operations in rollover tests
+    - Rollover affects file system state, so tests need proper cleanup with unwind-protect

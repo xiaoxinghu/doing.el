@@ -1892,4 +1892,110 @@
       (when (file-exists-p temp-dir)
         (delete-directory temp-dir t)))))
 
+;;; Phase 16: Rollover Integration
+
+(ert-deftest doing-test-ensure-rollover-throttled ()
+  "Test that `doing--ensure-rollover' throttles rollover checks to once per hour."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (doing--last-rollover-time nil))  ; Reset the timer
+    (unwind-protect
+        (progn
+          ;; First call should perform rollover
+          (should (null doing--last-rollover-time))
+          (doing--ensure-rollover)
+          (should (not (null doing--last-rollover-time)))
+          (let ((first-time doing--last-rollover-time))
+            ;; Immediate second call should NOT update the time (throttled)
+            (sleep-for 0.01)  ; Small delay to ensure time difference
+            (doing--ensure-rollover)
+            (should (equal doing--last-rollover-time first-time))
+            ;; Simulate time passing (set last rollover to 2 hours ago)
+            (setq doing--last-rollover-time
+                  (time-subtract (current-time) (seconds-to-time 7200)))
+            ;; Now rollover should happen again
+            (let ((old-time doing--last-rollover-time))
+              (doing--ensure-rollover)
+              ;; Time should have been updated
+              (should (not (equal doing--last-rollover-time old-time)))
+              ;; New time should be recent (within last second)
+              (should (< (float-time (time-subtract (current-time)
+                                                    doing--last-rollover-time))
+                         1.0)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-ensure-rollover-called-by-commands ()
+  "Test that user-facing commands call `doing--ensure-rollover'."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (doing--last-rollover-time nil)
+         (rollover-called nil))
+    (unwind-protect
+        (progn
+          ;; Mock doing--ensure-rollover to track if it's called
+          (cl-letf (((symbol-function 'doing--ensure-rollover)
+                     (lambda () (setq rollover-called t))))
+            ;; Test doing-now calls rollover
+            (setq rollover-called nil)
+            (cl-letf (((symbol-function 'doing-finish)
+                       (lambda () nil)))  ; Mock to prevent side effects
+              (doing-now "Test activity"))
+            (should rollover-called)
+            ;; Test doing-current calls rollover
+            (setq rollover-called nil)
+            (doing-current)
+            (should rollover-called)))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-with-old-data ()
+  "Test that `doing--ensure-rollover' correctly moves old entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (doing--last-rollover-time nil)
+         (today-file (doing--file-today))
+         (week-file (doing--file-week)))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create an entry from yesterday in today.org
+          (let* ((yesterday-time (time-subtract (current-time) (days-to-time 1)))
+                 (yesterday-date (format-time-string "%Y-%m-%d" yesterday-time)))
+            (doing--append-entry-to-file
+             (list :id "yesterday-id"
+                   :title "Yesterday's task"
+                   :started (format "[%s %s 10:00]"
+                                    yesterday-date
+                                    (format-time-string "%a" yesterday-time))
+                   :ended (format "[%s %s 11:00]"
+                                  yesterday-date
+                                  (format-time-string "%a" yesterday-time))
+                   :tags '("old"))
+             today-file)
+            ;; Kill buffer to ensure fresh read
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            ;; Verify entry exists in today.org
+            (let ((entries-before (doing--parse-file today-file)))
+              (should (= 1 (length entries-before))))
+            ;; Call ensure-rollover
+            (doing--ensure-rollover)
+            ;; Kill buffers
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Entry should be moved to week.org
+            (let ((today-entries (doing--parse-file today-file))
+                  (week-entries (doing--parse-file week-file)))
+              (should (= 0 (length today-entries)))
+              (should (= 1 (length week-entries)))
+              (should (string= "yesterday-id" (plist-get (car week-entries) :id))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
 ;;; doing-test.el ends here

@@ -10,6 +10,7 @@
 (require 'doing-lib)
 (require 'doing-current)
 (require 'doing-finish)
+(require 'doing-rollover)
 
 ;;;###autoload
 (defun doing-now (title &optional tags)
@@ -20,6 +21,7 @@ finished before starting the new one.
 If called interactively, prompts for TITLE. TAGS should be a list
 of strings, e.g., (\"emacs\" \"coding\")."
   (interactive "sWhat are you doing? ")
+  (doing--ensure-rollover)
   (doing--ensure-directory)
   ;; Auto-finish previous activity if it exists
   (when (doing--current-entry)

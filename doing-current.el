@@ -8,6 +8,7 @@
 ;;; Code:
 
 (require 'doing-lib)
+(require 'doing-rollover)
 
 (defun doing--current-entry ()
   "Return the current (unfinished) entry or nil.
@@ -23,6 +24,7 @@ returning the most recent one."
 Displays the current unfinished activity with elapsed time.
 If no activity is in progress, shows a message indicating so."
   (interactive)
+  (doing--ensure-rollover)
   (if-let ((entry (doing--current-entry)))
       (let* ((started (plist-get entry :started))
              (elapsed (doing--duration-minutes started (doing--timestamp-now)))
