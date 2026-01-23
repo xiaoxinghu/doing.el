@@ -1,0 +1,598 @@
+#+TITLE: Doing.el — Command Contract Design
+#+AUTHOR: Xiaoxing Hu
+#+DATE: <2026-01-23>
+#+OPTIONS: toc:2 num:nil
+#+STARTUP: overview
+
+* Overview
+
+This document defines the public command interface for =doing.el=.
+
+Commands are grouped by purpose:
+1. Capture — starting new activities
+2. Lifecycle — finishing, canceling, resuming
+3. View — displaying entries and reports
+4. Query — searching and filtering
+5. Utility — inspection and editing
+
+All commands operate on the storage model defined in =format.org=:
+- =today.org= — hot file for current day
+- =week.org= — warm file for current ISO week
+- =archive/YYYY-WW.org= — cold files for past weeks
+
+* Design Principles
+
+** Minimal Friction
+
+Capture should be as fast as possible.
+The most common command (=doing-now=) should require only a title.
+
+** Sensible Defaults
+
+Commands should work without arguments.
+Optional arguments refine behavior but are never required for basic use.
+
+** Predictable Behavior
+
+Every command should do one thing.
+Side effects should be obvious and documented.
+
+** Org-Native
+
+All output is Org-mode.
+Reports are temporary buffers, not persistent files.
+
+* Capture Commands
+
+** =doing-now=
+
+Start a new activity.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-now TITLE &optional TAGS)
+#+END_SRC
+
+*** Interactive Behavior
+
+- Prompt for TITLE (required)
+- Optionally prompt for TAGS (space-separated)
+
+*** Effect
+
+- Creates a new entry in =today.org=
+- Sets =STARTED= property to current timestamp
+- Generates unique =ID= property
+- Auto-tags based on =default-directory= if configured
+- If an unfinished entry exists, finishes it first (implicit =doing-finish=)
+
+*** Example
+
+#+BEGIN_SRC org
+,* Write command contract design :emacs:design:
+:PROPERTIES:
+:ID:       20260123T143022
+:STARTED:  [2026-01-23 Thu 14:30]
+:PROJECT:  doing-el
+:END:
+#+END_SRC
+
+** =doing-note=
+
+Add a note to the current (most recent unfinished) activity.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-note TEXT)
+#+END_SRC
+
+*** Interactive Behavior
+
+- Prompt for TEXT
+
+*** Effect
+
+- Appends TEXT to the body of the current entry
+- If no current entry exists, signal an error
+
+*** Example
+
+After adding a note:
+
+#+BEGIN_SRC org
+,* Write command contract design :emacs:design:
+:PROPERTIES:
+:ID:       20260123T143022
+:STARTED:  [2026-01-23 Thu 14:30]
+:END:
+Decided to split into capture and lifecycle sections.
+#+END_SRC
+
+* Lifecycle Commands
+
+** =doing-finish=
+
+Finish the current activity.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-finish &optional NOTE)
+#+END_SRC
+
+*** Interactive Behavior
+
+- Optionally prompt for a closing NOTE
+
+*** Effect
+
+- Sets =ENDED= property to current timestamp
+- Computes and sets =DURATION= property
+- Optionally appends NOTE to body
+- If no current entry exists, signal an error
+
+*** Example
+
+#+BEGIN_SRC org
+,* Write command contract design :emacs:design:
+:PROPERTIES:
+:ID:       20260123T143022
+:STARTED:  [2026-01-23 Thu 14:30]
+:ENDED:    [2026-01-23 Thu 15:15]
+:DURATION: 0:45
+:END:
+#+END_SRC
+
+** =doing-cancel=
+
+Cancel the current activity without recording it.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-cancel)
+#+END_SRC
+
+*** Interactive Behavior
+
+- Confirm before canceling (unless prefix arg)
+
+*** Effect
+
+- Deletes the current unfinished entry entirely
+- If no current entry exists, signal an error
+
+** =doing-resume=
+
+Resume a previous activity (start a new entry with the same title and tags).
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-resume &optional ENTRY)
+#+END_SRC
+
+*** Interactive Behavior
+
+- If ENTRY not provided, use the most recent finished entry
+- With prefix arg, prompt to select from recent entries
+
+*** Effect
+
+- Creates a new entry in =today.org= with:
+  - Same title as the resumed entry
+  - Same tags as the resumed entry
+  - Fresh =ID= and =STARTED=
+
+** =doing-again=
+
+Alias for =doing-resume= without arguments.
+Resumes the last finished activity.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-again)
+#+END_SRC
+
+* View Commands
+
+All view commands display results in a temporary read-only buffer.
+The buffer uses =org-mode= for syntax highlighting.
+
+** =doing-view-today=
+
+Show all activities from today.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-view-today)
+#+END_SRC
+
+*** Effect
+
+- Reads =today.org=
+- Displays entries in a =*doing: today*= buffer
+- Shows total duration at the bottom
+
+** =doing-view-yesterday=
+
+Show all activities from yesterday.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-view-yesterday)
+#+END_SRC
+
+*** Effect
+
+- Reads =today.org= and =week.org= as needed
+- Filters to yesterday's date
+- Displays in =*doing: yesterday*= buffer
+
+** =doing-view-week=
+
+Show all activities from the current ISO week.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-view-week)
+#+END_SRC
+
+*** Effect
+
+- Reads =today.org= and =week.org=
+- Displays in =*doing: this week*= buffer
+- Shows daily subtotals and week total
+
+** =doing-view-recent=
+
+Show the N most recent entries.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-view-recent &optional N)
+#+END_SRC
+
+*** Interactive Behavior
+
+- N defaults to 10
+- With prefix arg, prompt for N
+
+*** Effect
+
+- Scans files in reverse chronological order
+- Displays in =*doing: recent*= buffer
+
+** =doing-view-since=
+
+Show all activities since a given date.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-view-since DATE)
+#+END_SRC
+
+*** Interactive Behavior
+
+- Prompt for DATE using =org-read-date=
+
+*** Effect
+
+- Scans =today.org=, =week.org=, and relevant archive files
+- Displays in =*doing: since DATE*= buffer
+
+** =doing-view=
+
+Show a named preset view.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-view NAME)
+#+END_SRC
+
+*** Interactive Behavior
+
+- Prompt with completion from =doing-views= alist
+
+*** Effect
+
+- Executes the view definition
+- Displays results in =*doing: NAME*= buffer
+
+*** View Definitions
+
+Views are defined via =doing-views=:
+
+#+BEGIN_SRC elisp
+(defcustom doing-views
+  '(("today" . doing-view-today)
+    ("yesterday" . doing-view-yesterday)
+    ("week" . doing-view-week))
+  "Alist of named views.
+Each entry is (NAME . FUNCTION-OR-SPEC)."
+  :type '(alist :key-type string :value-type sexp)
+  :group 'doing)
+#+END_SRC
+
+* Report Commands
+
+** =doing-totals=
+
+Show time totals grouped by tag, project, or date.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-totals &optional GROUPING RANGE)
+#+END_SRC
+
+*** Interactive Behavior
+
+- GROUPING: =tag=, =project=, =date= (default: =tag=)
+- RANGE: =today=, =week=, =month=, or a date range
+
+*** Effect
+
+- Computes durations for all matching entries
+- Groups and sums by GROUPING
+- Displays in =*doing: totals*= buffer
+
+*** Example Output
+
+#+BEGIN_SRC text
+Totals for this week (2026-W04):
+
+By tag:
+  emacs        4:30
+  design       2:15
+  backend      3:00
+  review       1:45
+  -------------
+  Total       11:30
+
+By project:
+  doing-el     6:45
+  other        4:45
+  -------------
+  Total       11:30
+#+END_SRC
+
+** =doing-totals-today=
+
+Shortcut for =doing-totals= with RANGE set to today.
+
+** =doing-totals-week=
+
+Shortcut for =doing-totals= with RANGE set to current week.
+
+* TODO Query Commands
+
+** =doing-search=
+
+Search entries by text, tags, or properties.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-search QUERY &optional RANGE)
+#+END_SRC
+
+*** Interactive Behavior
+
+- Prompt for QUERY string
+- RANGE defaults to all accessible files
+
+*** Query Syntax (MVP)
+
+For MVP, keep the query syntax simple:
+
+- Plain text: matches title
+- =@tag=: matches entries with tag
+- =+word=: must contain word
+- =-word=: must not contain word
+
+*** Effect
+
+- Scans files in scope
+- Displays matching entries in =*doing: search*= buffer
+
+* Utility Commands
+
+** =doing-current=
+
+Show what you're currently doing.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-current)
+#+END_SRC
+
+*** Effect
+
+- Finds the most recent unfinished entry
+- Displays it in the minibuffer
+- If nothing is active, says so
+
+*** Example Output
+
+#+BEGIN_SRC text
+[2:15] Write command contract design :emacs:design:
+#+END_SRC
+
+** =doing-last=
+
+Show the last entry (finished or not).
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-last)
+#+END_SRC
+
+*** Effect
+
+- Finds the most recent entry by =STARTED= timestamp
+- Displays it in the minibuffer
+
+** =doing-edit=
+
+Open the current entry for editing.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-edit)
+#+END_SRC
+
+*** Effect
+
+- Opens =today.org= and jumps to the current entry
+- If no current entry, opens =today.org= at the last entry
+
+** =doing-open=
+
+Open the doing log file directly.
+
+*** Signature
+
+#+BEGIN_SRC elisp
+(doing-open &optional FILE)
+#+END_SRC
+
+*** Interactive Behavior
+
+- FILE defaults to =today.org=
+- With prefix arg, prompt to choose: today, week, or archive file
+
+* Auto-Tagging (MVP-4)
+
+Auto-tagging is configured via =doing-auto-tags=.
+
+** Configuration
+
+#+BEGIN_SRC elisp
+(defcustom doing-auto-tags nil
+  "Alist mapping directory prefixes to tags or properties.
+Each entry is (DIRECTORY . PLIST).
+
+Example:
+  ((\"~/projects/doing-el\" :project \"doing-el\" :tags (\"emacs\"))
+   (\"~/projects/api\"      :project \"api\"      :tags (\"backend\")))"
+  :type '(alist :key-type string :value-type plist)
+  :group 'doing)
+#+END_SRC
+
+** Behavior
+
+When =doing-now= is called:
+
+1. Check =default-directory=
+2. Find the longest matching prefix in =doing-auto-tags=
+3. Apply the corresponding tags and properties
+
+** Dir-Locals Support
+
+Alternatively, use =.dir-locals.el=:
+
+#+BEGIN_SRC elisp
+((nil . ((doing-project . "doing-el")
+         (doing-default-tags . ("emacs" "elisp")))))
+#+END_SRC
+
+* Rollover Commands (Internal)
+
+These are not user-facing but are documented for completeness.
+
+** =doing--ensure-rollover=
+
+Called automatically before any command that reads or writes entries.
+
+*** Effect
+
+- If =today.org= contains entries from previous days:
+  - Move them to =week.org=
+- If =week.org= contains entries from previous weeks:
+  - Archive to =archive/YYYY-WW.org=
+
+** =doing--maybe-rollover=
+
+Lightweight check called on mode activation or timer.
+Only triggers full rollover if timestamps indicate it's needed.
+
+* Command Summary Table
+
+| Command             | Purpose                              | MVP |
+|---------------------+--------------------------------------+-----|
+| =doing-now=         | Start a new activity                 | 1   |
+| =doing-note=        | Add note to current activity         | 1   |
+| =doing-finish=      | Finish current activity              | 2   |
+| =doing-cancel=      | Cancel current activity              | 2   |
+| =doing-resume=      | Resume a previous activity           | 2   |
+| =doing-again=       | Resume last finished activity        | 2   |
+| =doing-view-today=  | View today's activities              | 3   |
+| =doing-view-yesterday= | View yesterday's activities       | 3   |
+| =doing-view-week=   | View this week's activities          | 3   |
+| =doing-view-recent= | View N most recent entries           | 3   |
+| =doing-view-since=  | View entries since date              | 3   |
+| =doing-view=        | Show named preset view               | 5   |
+| =doing-totals=      | Show time totals                     | 3   |
+| =doing-search=      | Search entries                       | 4   |
+| =doing-current=     | Show current activity                | 1   |
+| =doing-last=        | Show last entry                      | 1   |
+| =doing-edit=        | Edit current entry                   | 1   |
+| =doing-open=        | Open log file                        | 1   |
+
+MVP column refers to the feature set from =research.org=.
+
+* Keybinding Suggestions
+
+Not prescribed, but suggested defaults under a prefix (e.g., =C-c d=):
+
+| Key       | Command             |
+|-----------+---------------------|
+| =C-c d n= | =doing-now=         |
+| =C-c d f= | =doing-finish=      |
+| =C-c d a= | =doing-again=       |
+| =C-c d c= | =doing-current=     |
+| =C-c d t= | =doing-view-today=  |
+| =C-c d w= | =doing-view-week=   |
+| =C-c d s= | =doing-search=      |
+| =C-c d T= | =doing-totals=      |
+
+* Error Handling
+
+** No Current Entry
+
+Commands that require a current entry (=doing-finish=, =doing-note=, =doing-cancel=) should:
+- Signal =user-error= with message: "No activity in progress"
+
+** No Entries Found
+
+View commands with no matching entries should:
+- Display an empty buffer with message: "No entries found"
+
+** File Not Found
+
+If a required file doesn't exist:
+- Create it automatically (for =today.org= and =week.org=)
+- Signal error for archive files that should exist
+
+* Future Considerations (Post-MVP)
+
+These are explicitly out of scope for MVP but noted for future:
+
+- Export to other formats (JSON, CSV, etc.)
+- Integration with org-agenda
+- Pomodoro-style timers
+- External tool sync (doing CLI, Toggl, etc.)
+- Advanced boolean query DSL
