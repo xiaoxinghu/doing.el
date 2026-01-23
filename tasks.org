@@ -627,7 +627,15 @@ Move old entries from =today.org= to =week.org=.
 - =doing-test-rollover-daily-moves-old=
 - =doing-test-rollover-daily-keeps-today=
 
-** TODO Weekly rollover — week to archive
+** DONE Weekly rollover — week to archive
+:PROPERTIES:
+:ID:       75BAB323-51FB-4655-843C-673265DA1457
+:CLAUDE_TIME_MS: 212860
+:CLAUDE_COST: 1.18911035
+:CLAUDE_INPUT_TOKENS: 80
+:CLAUDE_OUTPUT_TOKENS: 10305
+:CLAUDE_SESSION_ID: 22414bba-2a02-4b41-824b-76c1a9f70e9c
+:END:
 
 Archive old weeks.
 

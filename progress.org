@@ -514,3 +514,42 @@
     - Week.org file created automatically by =doing--ensure-file= when first entry appended
     - Rollover returns nil (not 0) when no entries need moving - important for conditional logic
     - Date filtering uses =not (string-prefix-p today ...)= to identify old entries, cleaner than >= comparison
+* 2026-01-24 - Weekly rollover — week to archive
+- what was implemented
+  - Added doing--rollover-weekly function to doing-rollover.el for automatic archive migration
+  - Function moves entries from week.org to archive/YYYY-WNN.org when they're from previous ISO weeks
+  - Uses ISO week comparison via doing--iso-week to identify old entries
+  - Preserves all entry properties (id, title, tags, started, ended, project) during archival
+  - Returns count of moved entries for visibility, nil if nothing moved
+  - Each entry is archived to its corresponding week file (e.g., 2026-W03.org, 2026-W04.org)
+  - Added 5 comprehensive tests covering all rollover scenarios
+  - All 72 tests pass successfully (67 from previous phases + 5 new tests)
+- files changed
+  - doing-rollover.el — added doing--rollover-weekly function implementing weekly archive logic
+  - tests/doing-test.el — added Phase 15 with 5 new tests:
+    - doing-test-rollover-weekly-archives — validates old entries moved to correct archive files
+    - doing-test-rollover-weekly-correct-filename — verifies YYYY-WNN.org filename format with zero-padding
+    - doing-test-rollover-weekly-no-old-entries — tests graceful handling when only current week entries exist
+    - doing-test-rollover-weekly-preserves-properties — ensures all entry properties survive archival
+    - doing-test-rollover-weekly-multiple-weeks — tests entries from multiple past weeks go to separate archive files
+- learnings
+  - patterns discovered
+    - Weekly rollover follows same pattern as daily rollover: filter by week, copy to archive, delete from source
+    - Using doing--iso-week with time parameter to determine which week an entry belongs to
+    - encode-time converts parsed timestamp (from org-parse-time-string) to time value for doing--iso-week
+    - Archive file path determined by entry's ISO week: doing--file-archive takes (year week) list
+    - Counter pattern with setq: (setq moved (1+ moved)) tracks number of entries archived
+    - Multiple archive files created automatically as needed, one per ISO week
+    - Tests use time-subtract with days-to-time to generate past week timestamps dynamically
+    - Buffer killing before and after operations ensures fresh file reads in tests
+  - gotchas encountered
+    - Initial compilation error: used let instead of let* for sequential variable bindings
+    - Compilation warning "reference to free variable" when using let with dependent bindings
+    - Solution: change all let to let* in tests where later bindings depend on earlier ones
+    - Example: (let* ((time ...) (week (doing--iso-week time)))) not (let ((time ...) (week (doing--iso-week time))))
+    - Must use encode-time to convert parsed time before passing to doing--iso-week
+    - org-parse-time-string returns decoded time list, encode-time converts to time value
+    - Entries from different weeks create separate archive files automatically
+    - doing--file-archive with zero-padded week numbers ensures correct lexicographic sorting (2026-W01.org, not 2026-W1.org)
+    - Rollover returns nil (not 0) when no entries moved, consistent with daily rollover behavior
+    - org-cut-subtree messages "Cut: Subtree(s)" appear in test output which is expected org behavior

@@ -36,6 +36,31 @@ Returns the number of entries moved, or nil if none were moved."
         (doing--delete-entry (plist-get entry :id) today-file))
       (length old))))
 
+;;; Weekly Rollover
+
+(defun doing--rollover-weekly ()
+  "Archive entries from previous weeks to archive/YYYY-WNN.org.
+Returns the number of entries moved, or nil if none were moved."
+  (let* ((current-week (doing--iso-week))
+         (week-file (doing--file-week))
+         (entries (doing--parse-file week-file))
+         (moved 0))
+    (dolist (entry entries)
+      (let* ((started (plist-get entry :started))
+             (entry-time (when started
+                           (encode-time (org-parse-time-string started))))
+             (entry-week (when entry-time
+                           (doing--iso-week entry-time))))
+        (when (and entry-week
+                   (not (equal entry-week current-week)))
+          ;; Archive this entry
+          (let ((archive-file (doing--file-archive
+                               (car entry-week) (cadr entry-week))))
+            (doing--append-entry-to-file entry archive-file)
+            (doing--delete-entry (plist-get entry :id) week-file)
+            (setq moved (1+ moved))))))
+    (when (> moved 0) moved)))
+
 (provide 'doing-rollover)
 
 ;;; doing-rollover.el ends here

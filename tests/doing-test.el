@@ -1673,4 +1673,223 @@
       (when (file-exists-p temp-dir)
         (delete-directory temp-dir t)))))
 
+;;; Phase 15: Weekly Rollover
+
+(ert-deftest doing-test-rollover-weekly-archives ()
+  "Test that weekly rollover archives old entries to archive files."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let* ((week-file (doing--file-week))
+                 ;; Create timestamp for previous week
+                 (last-week-time (time-subtract (current-time) (days-to-time 8)))
+                 (last-week (doing--iso-week last-week-time))
+                 (last-week-date (format-time-string "%Y-%m-%d" last-week-time)))
+            ;; Add entry from previous week
+            (doing--append-entry-to-file
+             (list :id "old-week-id"
+                   :title "Old week entry"
+                   :started (format "[%s Mon 10:00]" last-week-date)
+                   :tags '("old"))
+             week-file)
+            ;; Add entry from current week
+            (let ((this-week-date (format-time-string "%Y-%m-%d")))
+              (doing--append-entry-to-file
+               (list :id "current-week-id"
+                     :title "Current week entry"
+                     :started (format "[%s Fri 14:00]" this-week-date)
+                     :tags '("new"))
+               week-file))
+            ;; Kill buffer to ensure fresh reads
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Run weekly rollover
+            (let ((moved-count (doing--rollover-weekly)))
+              ;; Should have moved 1 entry
+              (should (= moved-count 1)))
+            ;; Kill buffer again
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Verify week.org only has current week's entry
+            (let ((week-entries (doing--parse-file week-file)))
+              (should (= 1 (length week-entries)))
+              (should (string= "current-week-id" (plist-get (car week-entries) :id))))
+            ;; Verify archive file has the old entry
+            (let* ((archive-file (doing--file-archive (car last-week) (cadr last-week)))
+                   (archive-entries (doing--parse-file archive-file)))
+              (should (file-exists-p archive-file))
+              (should (= 1 (length archive-entries)))
+              (should (string= "old-week-id" (plist-get (car archive-entries) :id))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-weekly-correct-filename ()
+  "Test that weekly rollover creates correctly named archive files."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let* ((week-file (doing--file-week))
+                 ;; Create timestamp for a specific past week
+                 (past-time (time-subtract (current-time) (days-to-time 14)))
+                 (past-week (doing--iso-week past-time))
+                 (past-date (format-time-string "%Y-%m-%d" past-time)))
+            ;; Add entry from past week
+            (doing--append-entry-to-file
+             (list :id "past-id"
+                   :title "Past entry"
+                   :started (format "[%s Wed 10:00]" past-date)
+                   :tags '("past"))
+             week-file)
+            ;; Kill buffer
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Run weekly rollover
+            (doing--rollover-weekly)
+            ;; Verify archive file naming format
+            (let* ((expected-file (doing--file-archive (car past-week) (cadr past-week)))
+                   (expected-basename (file-name-nondirectory expected-file)))
+              ;; Check file exists
+              (should (file-exists-p expected-file))
+              ;; Check filename format YYYY-WNN.org (with zero-padded week)
+              (should (string-match "^[0-9]\\{4\\}-W[0-9]\\{2\\}\\.org$" expected-basename)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-weekly-no-old-entries ()
+  "Test that weekly rollover handles week.org with only current week entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let ((week-file (doing--file-week))
+                (this-week-date (format-time-string "%Y-%m-%d")))
+            ;; Add only current week entries
+            (doing--append-entry-to-file
+             (list :id "current1"
+                   :title "Current entry 1"
+                   :started (format "[%s Mon 10:00]" this-week-date)
+                   :tags '("work"))
+             week-file)
+            (doing--append-entry-to-file
+             (list :id "current2"
+                   :title "Current entry 2"
+                   :started (format "[%s Tue 11:00]" this-week-date)
+                   :tags '("work"))
+             week-file)
+            ;; Kill buffer
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Run weekly rollover
+            (let ((moved-count (doing--rollover-weekly)))
+              ;; Should not move any entries
+              (should (null moved-count)))
+            ;; Kill buffer again
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Verify all entries still in week.org
+            (let ((week-entries (doing--parse-file week-file)))
+              (should (= 2 (length week-entries)))
+              (should (member "current1" (mapcar (lambda (e) (plist-get e :id)) week-entries)))
+              (should (member "current2" (mapcar (lambda (e) (plist-get e :id)) week-entries))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-weekly-preserves-properties ()
+  "Test that weekly rollover preserves all entry properties during archival."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let* ((week-file (doing--file-week))
+                 (last-week-time (time-subtract (current-time) (days-to-time 10)))
+                 (last-week (doing--iso-week last-week-time))
+                 (last-week-date (format-time-string "%Y-%m-%d" last-week-time)))
+            ;; Create entry with all properties
+            (doing--append-entry-to-file
+             (list :id "complete-archive-id"
+                   :title "Complete archived entry"
+                   :started (format "[%s Tue 09:00]" last-week-date)
+                   :ended (format "[%s Tue 11:00]" last-week-date)
+                   :tags '("archived" "complete")
+                   :project "test-project")
+             week-file)
+            ;; Kill buffer
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Run weekly rollover
+            (doing--rollover-weekly)
+            ;; Verify entry in archive file has all properties
+            (let* ((archive-file (doing--file-archive (car last-week) (cadr last-week)))
+                   (archive-entries (doing--parse-file archive-file))
+                   (entry (car archive-entries)))
+              (should (= 1 (length archive-entries)))
+              (should (string= "complete-archive-id" (plist-get entry :id)))
+              (should (string= "Complete archived entry" (plist-get entry :title)))
+              (should (string= last-week-date (doing--timestamp-date (plist-get entry :started))))
+              (should (string= last-week-date (doing--timestamp-date (plist-get entry :ended))))
+              (should (equal '("archived" "complete") (plist-get entry :tags)))
+              (should (string= "test-project" (plist-get entry :project))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-weekly-multiple-weeks ()
+  "Test that weekly rollover handles entries from multiple past weeks."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let* ((week-file (doing--file-week))
+                 ;; Two different past weeks
+                 (week1-time (time-subtract (current-time) (days-to-time 8)))
+                 (week2-time (time-subtract (current-time) (days-to-time 15)))
+                 (week1 (doing--iso-week week1-time))
+                 (week2 (doing--iso-week week2-time))
+                 (week1-date (format-time-string "%Y-%m-%d" week1-time))
+                 (week2-date (format-time-string "%Y-%m-%d" week2-time)))
+            ;; Add entries from two different past weeks
+            (doing--append-entry-to-file
+             (list :id "week1-id"
+                   :title "Week 1 entry"
+                   :started (format "[%s Mon 10:00]" week1-date)
+                   :tags '("week1"))
+             week-file)
+            (doing--append-entry-to-file
+             (list :id "week2-id"
+                   :title "Week 2 entry"
+                   :started (format "[%s Mon 10:00]" week2-date)
+                   :tags '("week2"))
+             week-file)
+            ;; Kill buffer
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Run weekly rollover
+            (let ((moved-count (doing--rollover-weekly)))
+              ;; Should have moved 2 entries
+              (should (= moved-count 2)))
+            ;; Verify each archive file has the correct entry
+            (let* ((archive1 (doing--file-archive (car week1) (cadr week1)))
+                   (archive2 (doing--file-archive (car week2) (cadr week2)))
+                   (entries1 (doing--parse-file archive1))
+                   (entries2 (doing--parse-file archive2)))
+              (should (file-exists-p archive1))
+              (should (file-exists-p archive2))
+              (should (= 1 (length entries1)))
+              (should (= 1 (length entries2)))
+              (should (string= "week1-id" (plist-get (car entries1) :id)))
+              (should (string= "week2-id" (plist-get (car entries2) :id))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
 ;;; doing-test.el ends here
