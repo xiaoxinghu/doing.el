@@ -11,6 +11,7 @@
 (require 'doing-lib)
 (require 'doing-now)
 (require 'doing-current)
+(require 'doing-finish)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -977,5 +978,146 @@
 (ert-deftest doing-test-current-is-interactive ()
   "Test that `doing-current' is an interactive command."
   (should (commandp 'doing-current)))
+
+;;; Phase 10: doing-finish tests
+
+(ert-deftest doing-test-finish-sets-ended ()
+  "Test that `doing-finish' sets ENDED property correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an unfinished entry
+          (doing-now "Task to finish" '("test"))
+          (sleep-for 0.01)  ; Small delay to ensure different timestamps
+          ;; Finish it
+          (doing-finish)
+          ;; Read back the entry
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (let ((entry (car entries)))
+              ;; Should have title and ID
+              (should (string= (plist-get entry :title) "Task to finish"))
+              ;; Should have ENDED property now
+              (should (plist-get entry :ended))
+              ;; ENDED should be an Org timestamp format
+              (should (string-match-p "^\\[20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]"
+                                      (plist-get entry :ended))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-finish-sets-duration ()
+  "Test that `doing-finish' computes and sets DURATION property."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an unfinished entry
+          (doing-now "Task to finish")
+          (sleep-for 0.02)  ; Small delay to ensure measurable duration
+          ;; Finish it
+          (doing-finish)
+          ;; Read the file directly to check DURATION property
+          (with-temp-buffer
+            (insert-file-contents (doing--file-today))
+            (goto-char (point-min))
+            ;; Should have DURATION property in the file
+            (should (re-search-forward "^:DURATION:" nil t))
+            ;; Duration should have some time value
+            (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+              ;; Should match pattern like ":DURATION: 0:00" or ":DURATION:  0:00"
+              (should (string-match-p ":DURATION:.*[0-9]" line)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-finish-error-when-no-current ()
+  "Test that `doing-finish' signals error when no activity in progress."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Ensure directory exists but no entries
+          (doing--ensure-directory)
+          ;; Should signal user-error
+          (should-error (doing-finish) :type 'user-error))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-finish-with-message ()
+  "Test that `doing-finish' displays completion message with duration."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Task with message")
+          (sleep-for 0.01)
+          ;; Finish and capture message
+          (let ((message-log-max t)
+                (messages-buffer (get-buffer-create "*Messages*")))
+            (with-current-buffer messages-buffer
+              (let ((start-pos (point-max)))
+                (doing-finish)
+                (with-current-buffer messages-buffer
+                  (goto-char start-pos)
+                  (let ((output (buffer-substring start-pos (point-max))))
+                    ;; Should contain "Finished:" prefix
+                    (should (string-match-p "Finished:" output))
+                    ;; Should contain the task title
+                    (should (string-match-p "Task with message" output))
+                    ;; Should contain a duration in parentheses
+                    (should (string-match-p "([0-9]" output))))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-finish-multiple-times ()
+  "Test that finishing when already finished signals error."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create and finish an entry
+          (doing-now "Single task")
+          (doing-finish)
+          ;; Try to finish again - should error since no current entry
+          (should-error (doing-finish) :type 'user-error))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-finish-preserves-other-properties ()
+  "Test that `doing-finish' preserves tags and other entry properties."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry with tags
+          (doing-now "Task with props" '("emacs" "test"))
+          (doing-finish)
+          ;; Verify all properties are preserved
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (let ((entry (car entries)))
+              ;; Title should be preserved
+              (should (string= (plist-get entry :title) "Task with props"))
+              ;; Tags should be preserved
+              (should (equal (plist-get entry :tags) '("emacs" "test")))
+              ;; STARTED should still exist
+              (should (plist-get entry :started))
+              ;; ENDED should be set
+              (should (plist-get entry :ended))
+              ;; ID should still exist
+              (should (plist-get entry :id)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-finish-is-interactive ()
+  "Test that `doing-finish' is an interactive command."
+  (should (commandp 'doing-finish)))
 
 ;;; doing-test.el ends here

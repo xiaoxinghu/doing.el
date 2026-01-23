@@ -284,3 +284,44 @@
     - =reverse= is necessary because =doing--parse-file= returns entries in file order (oldest first)
     - Tests create finished entries by manually setting :ended property, simulating real workflow
     - Message output appears in test results which is expected and not a problem
+
+* 2026-01-23 - doing-finish — finish current activity
+- what was implemented
+  - Created doing-finish.el with the =doing-finish= command for completing current activity
+  - Command sets ENDED property to current timestamp and computes DURATION
+  - Uses existing =doing--current-entry= helper from doing-current.el to find unfinished entry
+  - Leverages =doing--update-entry-property= to set both ENDED and DURATION properties
+  - Displays completion message showing task title and duration
+  - Signals =user-error= when no activity is in progress
+  - Added 7 comprehensive tests for doing-finish functionality
+  - All 46 tests pass successfully (39 from previous phases + 7 new tests)
+  - Package compiles cleanly without warnings
+- files changed
+  - doing-finish.el — new feature file with =doing-finish= command
+  - doing.el — added =(require 'doing-finish)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-finish)= and Phase 10 with 7 new tests:
+    - doing-test-finish-sets-ended — validates ENDED property is set with correct timestamp format
+    - doing-test-finish-sets-duration — verifies DURATION property is computed and written to file
+    - doing-test-finish-error-when-no-current — tests user-error when no activity exists
+    - doing-test-finish-with-message — validates completion message contains title and duration
+    - doing-test-finish-multiple-times — tests error when trying to finish again without new activity
+    - doing-test-finish-preserves-other-properties — ensures tags, ID, STARTED are preserved
+    - doing-test-finish-is-interactive — verifies command has interactive declaration
+- learnings
+  - patterns discovered
+    - Reusing =doing--current-entry= from doing-current.el demonstrates good code reuse between feature modules
+    - =doing-finish= requires =doing-current= module since it depends on =doing--current-entry= helper
+    - Multiple calls to =doing--update-entry-property= in sequence is the pattern for setting multiple properties
+    - Duration is computed on-the-fly during finish operation using =doing--duration-minutes= and formatted with =doing--duration-format=
+    - Message format "Finished: TITLE (DURATION)" provides user feedback with both what was done and how long it took
+    - Tests use =sleep-for 0.01= or =sleep-for 0.02= to ensure measurable time differences between start and finish
+    - Testing DURATION property requires reading file directly (not just parsed entry) since it's written during finish
+    - Comprehensive test coverage includes: property setting, error conditions, message output, preservation of existing data
+  - gotchas encountered
+    - Must =(require 'doing-current)= in doing-finish.el to access =doing--current-entry= function
+    - =user-error= is the appropriate error type for interactive commands when user action is needed
+    - Duration test must use file content check (=insert-file-contents=) because DURATION is written as property
+    - Pattern ":DURATION:.*[0-9]" used in regex to account for varying spacing in property drawer format
+    - Cannot finish twice in a row - second call errors because first finish removes the "current" entry
+    - Tests preserve other entry properties (tags, ID, STARTED) and validate they survive the finish operation
+    - Message testing pattern established in doing-current tests applies here: capture from *Messages* buffer

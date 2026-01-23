@@ -34,6 +34,7 @@
 (require 'doing-lib)
 (require 'doing-now)
 (require 'doing-current)
+(require 'doing-finish)
 
 ;;; Customization
 

@@ -412,7 +412,15 @@ Display unfinished activity.
 - =doing-test-current-shows-active=
 - =doing-test-current-when-nothing-active=
 
-** TODO =doing-finish= — finish current activity
+** DONE =doing-finish= — finish current activity
+:PROPERTIES:
+:ID:       99A7C8F4-B496-4AF8-AB30-A01C19ABCDB7
+:CLAUDE_TIME_MS: 166839
+:CLAUDE_COST: 0.7979882000000004
+:CLAUDE_INPUT_TOKENS: 70
+:CLAUDE_OUTPUT_TOKENS: 6200
+:CLAUDE_SESSION_ID: 263a109e-4044-41df-9767-1db4ad49e6c3
+:END:
 
 Mark current activity complete using =org-entry-put=.
 
