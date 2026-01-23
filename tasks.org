@@ -550,7 +550,15 @@ Modify =doing-now= to call =doing-finish= first if there's an active entry:
 
 - =doing-test-now-finishes-previous=
 
-** TODO =doing-again= — resume last activity
+** DONE =doing-again= — resume last activity
+:PROPERTIES:
+:ID:       A7068322-7C72-4127-9B96-99B1D265DC2B
+:CLAUDE_TIME_MS: 373318
+:CLAUDE_COST: 1.7229269000000005
+:CLAUDE_INPUT_TOKENS: 75
+:CLAUDE_OUTPUT_TOKENS: 15999
+:CLAUDE_SESSION_ID: 8aec7f94-5131-43a6-a86f-8b4a3c151119
+:END:
 
 Resume last finished activity.
 

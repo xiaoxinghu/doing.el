@@ -435,3 +435,46 @@
     - =find-file-noselect= keeps buffers open, which can cause stale data issues in tests
     - Auto-finish changes behavior of existing code: =doing-test-now-creates-entry= still passes because it creates 2 entries (first is auto-finished)
     - Message output "Started:" appears but no "Finished:" means =doing-finish= wasn't called, likely due to byte-compilation issue
+
+* 2026-01-23 - doing-again — resume last activity
+- what was implemented
+  - Created doing-again.el with =doing-again= command for resuming previous finished activities
+  - =doing--last-finished-entry= helper function finds most recent finished entry by filtering finished entries and taking last one
+  - =doing-again= command calls =doing-now= with title and tags from last finished entry
+  - Creates fresh entry with new ID and timestamp when resuming
+  - Signals =user-error= when no previous finished activity exists
+  - Added 6 comprehensive tests covering all functionality
+  - All 63 tests pass successfully (57 from previous phases + 6 new tests)
+  - Package compiles cleanly without warnings
+- files changed
+  - doing-again.el — new feature file with =doing-again= and =doing--last-finished-entry= (follows project structure guidelines)
+  - doing.el — added =(require 'doing-again)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-again)= and Phase 13 with 6 new tests:
+    - doing-test-again-copies-title-and-tags — tests that resumed entry has same title/tags but different ID
+    - doing-test-again-error-when-no-previous — tests user-error when no finished activities exist
+    - doing-test-again-uses-most-recent-finished — tests with multiple finished entries, verifies most recent is resumed
+    - doing-test-again-creates-fresh-timestamps — tests that IDs are unique (even if timestamps might be same minute)
+    - doing-test-last-finished-entry-helper — tests internal helper with various entry states
+    - doing-test-again-is-interactive — verifies command has interactive declaration
+- learnings
+  - patterns discovered
+    - Following established pattern: feature file named =doing-again.el=, requires =doing-now= since it depends on it
+    - =doing--last-finished-entry= uses =seq-filter= to get finished entries, then =car= of =last= to get most recent
+    - This is more reliable than =seq-find= with =reverse= which stops at first match when searching backwards
+    - =doing-again= is essentially a convenient wrapper around =doing-now= with preset title and tags
+    - Tests need long sleep times (1.1 seconds) to ensure distinct IDs since IDs are timestamp-based with second precision
+    - Buffer management in tests: killing buffers with =kill-buffer (get-file-buffer path)= ensures fresh disk reads
+    - Using =cl-letf= to suppress =yes-or-no-p= prompts in batch mode tests prevents interactive prompts during test runs
+  - gotchas encountered
+    - Must =(require 'doing-now)= in doing-again.el since it depends on the =doing-now= function
+    - =seq-find= with =reverse= doesn't work as expected - it finds FIRST match in reversed list, not LAST in original
+    - Correct approach: filter finished entries first, then take =car= of =last= to get most recent
+    - Timestamp-based IDs (YYYYMMDDTHHMMSS format) can collide if operations happen within same second
+    - Tests initially used 0.01s sleep which was insufficient for second-precision IDs - needed 1.1s to guarantee different seconds
+    - Org timestamps in STARTED property only show minute precision [YYYY-MM-DD DDD HH:MM], not seconds
+    - This means two entries created in same minute have identical STARTED timestamps even though IDs differ
+    - Tests must verify ID uniqueness rather than STARTED timestamp uniqueness
+    - File buffer caching caused stale data reads - =doing--parse-file= reads from disk but if buffer exists, later operations may use cached buffer
+    - Solution: kill file buffers before operations that need fresh data with =when-let ((buf (get-file-buffer path))) (kill-buffer buf)=
+    - =find-file-noselect= can trigger interactive "File changed on disk" prompts in batch mode tests
+    - Using =cl-letf= to override =yes-or-no-p= with =(lambda (_) t)= suppresses these prompts automatically

@@ -14,6 +14,7 @@
 (require 'doing-finish)
 (require 'doing-cancel)
 (require 'doing-note)
+(require 'doing-again)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -1328,5 +1329,180 @@
 (ert-deftest doing-test-note-is-interactive ()
   "Test that `doing-note' is an interactive command."
   (should (commandp 'doing-note)))
+
+;;; Phase 13: doing-again — resume last activity
+
+(ert-deftest doing-test-again-copies-title-and-tags ()
+  "Test that `doing-again' creates new entry with same title and tags as last finished."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create and finish first activity with tags
+          (doing-now "First task" '("emacs" "coding"))
+          (sleep-for 1.1)
+          (doing-finish)
+          ;; Resume it
+          (sleep-for 1.1)
+          (doing-again)
+          ;; Parse entries
+          (let ((path (doing--file-today)))
+            ;; Kill buffer to ensure fresh read from disk
+            (when-let ((buf (get-file-buffer path)))
+              (kill-buffer buf))
+            (let ((entries (doing--parse-file path)))
+              ;; Should have 2 entries
+              (should (= 2 (length entries)))
+              ;; First entry should be finished
+              (should (plist-get (nth 0 entries) :ended))
+              ;; Second entry should have same title and tags
+              (should (string= "First task" (plist-get (nth 1 entries) :title)))
+              (should (equal '("emacs" "coding") (plist-get (nth 1 entries) :tags)))
+              ;; Second entry should NOT be finished
+              (should-not (plist-get (nth 1 entries) :ended))
+              ;; Second entry should have different ID
+              (should-not (string= (plist-get (nth 0 entries) :id)
+                                   (plist-get (nth 1 entries) :id))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-again-error-when-no-previous ()
+  "Test that `doing-again' signals error when no previous finished activity exists."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Try to resume without any finished activity
+          (should-error (doing-again) :type 'user-error)
+          ;; Create an unfinished activity
+          (doing-now "Current task")
+          ;; Try to resume - should still error (current is not finished)
+          (should-error (doing-again) :type 'user-error))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-again-uses-most-recent-finished ()
+  "Test that `doing-again' resumes the most recent finished activity."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Suppress yes-or-no-p prompts about rereading files in batch mode
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+            ;; Create and finish two activities
+            (doing-now "First task" '("tag1"))
+            (sleep-for 1.1)
+            (doing-finish)
+            (sleep-for 1.1)
+            (doing-now "Second task" '("tag2"))
+            (sleep-for 1.1)
+            (doing-finish)
+            ;; Kill buffer to ensure doing-again reads fresh data
+            (let ((path (doing--file-today)))
+              (when-let ((buf (get-file-buffer path)))
+                (kill-buffer buf)))
+            ;; Resume - should get "Second task"
+            (sleep-for 0.01)
+            (doing-again))
+          ;; Parse entries
+          (let ((path (doing--file-today)))
+            ;; Kill buffer to ensure fresh read
+            (when-let ((buf (get-file-buffer path)))
+              (kill-buffer buf))
+            (let ((entries (doing--parse-file path)))
+              ;; Should have 3 entries
+              (should (= 3 (length entries)))
+              ;; Third entry should match second, not first
+              (should (string= "Second task" (plist-get (nth 2 entries) :title)))
+              (should (equal '("tag2") (plist-get (nth 2 entries) :tags))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-again-creates-fresh-timestamps ()
+  "Test that `doing-again' creates entry with fresh timestamp and ID."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create and finish first activity
+          (doing-now "Task to resume")
+          (sleep-for 1.1)
+          (doing-finish)
+          ;; Resume it
+          (sleep-for 1.1)
+          (doing-again)
+          ;; Parse entries
+          (let ((path (doing--file-today)))
+            ;; Kill buffer to ensure fresh read
+            (when-let ((buf (get-file-buffer path)))
+              (kill-buffer buf))
+            (let ((entries (doing--parse-file path)))
+              (should (= 2 (length entries)))
+              (let ((first (nth 0 entries))
+                    (second (nth 1 entries)))
+                ;; IDs should be different (IDs include seconds so are more precise)
+                (should-not (string= (plist-get first :id)
+                                     (plist-get second :id)))
+                ;; Start times may be same if within same minute, but IDs prove they're distinct entries
+                ;; Second entry should NOT be finished
+                (should-not (plist-get second :ended))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-last-finished-entry-helper ()
+  "Test the internal helper `doing--last-finished-entry'."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Suppress yes-or-no-p prompts about rereading files in batch mode
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+            ;; No entries - should return nil
+            (should-not (doing--last-finished-entry))
+            ;; Create unfinished entry - should return nil
+            (doing-now "Current task")
+            (should-not (doing--last-finished-entry))
+            ;; Finish it - should return the entry
+            (sleep-for 1.1)
+            (doing-finish)
+            ;; Kill buffer to read fresh data
+            (let ((path (doing--file-today)))
+              (when-let ((buf (get-file-buffer path)))
+                (kill-buffer buf)))
+            (let ((entry (doing--last-finished-entry)))
+              (should entry)
+              (should (string= "Current task" (plist-get entry :title)))
+              (should (plist-get entry :ended)))
+            ;; Create another unfinished - should still return first
+            (sleep-for 1.1)
+            (doing-now "Second task")
+            ;; Kill buffer to read fresh data
+            (let ((path (doing--file-today)))
+              (when-let ((buf (get-file-buffer path)))
+                (kill-buffer buf)))
+            (let ((entry (doing--last-finished-entry)))
+              (should entry)
+              (should (string= "Current task" (plist-get entry :title))))
+            ;; Finish second - should now return second
+            (sleep-for 1.1)
+            (doing-finish)
+            ;; Kill buffer to read fresh data
+            (let ((path (doing--file-today)))
+              (when-let ((buf (get-file-buffer path)))
+                (kill-buffer buf)))
+            (let ((entry (doing--last-finished-entry)))
+              (should entry)
+              (should (string= "Second task" (plist-get entry :title))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-again-is-interactive ()
+  "Test that `doing-again' is an interactive command."
+  (should (commandp 'doing-again)))
 
 ;;; doing-test.el ends here
