@@ -133,7 +133,15 @@ Thin wrappers around built-in functions for our specific needs.
 - =doing-test-duration-calculation=
 - =doing-test-iso-week-string=
 
-** TODO Entry parsing with org-element
+** DONE Entry parsing with org-element
+:PROPERTIES:
+:ID:       559A5095-73B5-4710-8337-C69A56C6E58D
+:CLAUDE_TIME_MS: 179215
+:CLAUDE_COST: 0.72489955
+:CLAUDE_INPUT_TOKENS: 65
+:CLAUDE_OUTPUT_TOKENS: 9213
+:CLAUDE_SESSION_ID: 20f0f0de-a963-4ab2-ad10-9505ac9c7af3
+:END:
 
 Use =org-element= API to parse entries. *Do not write custom parsers.*
 

@@ -263,4 +263,143 @@
     ;; Year should be 2026
     (should (= (nth 5 parsed) 2026))))
 
+;;; Phase 4: Entry parsing tests
+
+(ert-deftest doing-test-parse-entry-at-point ()
+  "Test that `doing--parse-entry-at-point' parses headline correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file with entry
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* Write documentation :emacs:docs:\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       20260123T143000\n")
+            (insert ":STARTED:  [2026-01-23 Thu 14:30]\n")
+            (insert ":ENDED:    [2026-01-23 Thu 15:15]\n")
+            (insert ":PROJECT:  doing-el\n")
+            (insert ":END:\n")
+            (insert "Some notes here.\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Parse the entry
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (goto-char (point-min))
+            (re-search-forward "^\\* Write documentation")
+            (let ((entry (doing--parse-entry-at-point)))
+              ;; Should return a plist
+              (should (listp entry))
+              ;; Check all properties
+              (should (string= (plist-get entry :id) "20260123T143000"))
+              (should (string= (plist-get entry :title) "Write documentation"))
+              (should (equal (plist-get entry :tags) '("emacs" "docs")))
+              (should (string= (plist-get entry :started) "[2026-01-23 Thu 14:30]"))
+              (should (string= (plist-get entry :ended) "[2026-01-23 Thu 15:15]"))
+              (should (string= (plist-get entry :project) "doing-el"))
+              (should (integerp (plist-get entry :begin)))
+              (should (integerp (plist-get entry :end)))))
+          ;; Test non-headline position
+          (with-current-buffer (find-file-noselect test-file)
+            (goto-char (point-min))
+            (should (null (doing--parse-entry-at-point)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-parse-buffer-multiple ()
+  "Test that `doing--parse-buffer' parses multiple entries correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file with multiple entries
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* First entry :tag1:\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       entry1\n")
+            (insert ":STARTED:  [2026-01-23 Thu 10:00]\n")
+            (insert ":END:\n\n")
+            (insert "* Second entry :tag2:tag3:\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       entry2\n")
+            (insert ":STARTED:  [2026-01-23 Thu 11:00]\n")
+            (insert ":ENDED:    [2026-01-23 Thu 12:00]\n")
+            (insert ":PROJECT:  test-project\n")
+            (insert ":END:\n\n")
+            (insert "* Third entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       entry3\n")
+            (insert ":STARTED:  [2026-01-23 Thu 13:00]\n")
+            (insert ":END:\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Parse all entries
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (let ((entries (doing--parse-buffer)))
+              ;; Should return a list
+              (should (listp entries))
+              ;; Should have 3 entries
+              (should (= (length entries) 3))
+              ;; Check first entry
+              (let ((e1 (nth 0 entries)))
+                (should (string= (plist-get e1 :id) "entry1"))
+                (should (string= (plist-get e1 :title) "First entry"))
+                (should (equal (plist-get e1 :tags) '("tag1")))
+                (should (null (plist-get e1 :ended))))
+              ;; Check second entry
+              (let ((e2 (nth 1 entries)))
+                (should (string= (plist-get e2 :id) "entry2"))
+                (should (string= (plist-get e2 :title) "Second entry"))
+                (should (equal (plist-get e2 :tags) '("tag2" "tag3")))
+                (should (string= (plist-get e2 :ended) "[2026-01-23 Thu 12:00]"))
+                (should (string= (plist-get e2 :project) "test-project")))
+              ;; Check third entry
+              (let ((e3 (nth 2 entries)))
+                (should (string= (plist-get e3 :id) "entry3"))
+                (should (string= (plist-get e3 :title) "Third entry"))
+                (should (null (plist-get e3 :tags)))
+                (should (null (plist-get e3 :ended)))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-parse-file ()
+  "Test that `doing--parse-file' parses file correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir))
+         (missing-file (expand-file-name "missing.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* Entry one :work:\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       test-id-1\n")
+            (insert ":STARTED:  [2026-01-23 Thu 09:00]\n")
+            (insert ":END:\n\n")
+            (insert "* Entry two :personal:\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       test-id-2\n")
+            (insert ":STARTED:  [2026-01-23 Thu 10:00]\n")
+            (insert ":ENDED:    [2026-01-23 Thu 10:30]\n")
+            (insert ":END:\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Parse existing file
+          (let ((entries (doing--parse-file test-file)))
+            (should (listp entries))
+            (should (= (length entries) 2))
+            (should (string= (plist-get (nth 0 entries) :id) "test-id-1"))
+            (should (string= (plist-get (nth 1 entries) :id) "test-id-2"))
+            (should (equal (plist-get (nth 0 entries) :tags) '("work")))
+            (should (equal (plist-get (nth 1 entries) :tags) '("personal"))))
+          ;; Test non-existent file
+          (should (null (doing--parse-file missing-file))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
 ;;; doing-test.el ends here

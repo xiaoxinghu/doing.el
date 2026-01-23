@@ -78,3 +78,33 @@
     - =time-subtract= expects both arguments to be time values (not decoded time), so must call =encode-time= first
     - Duration formatting behavior depends on =org-duration-format= customization, so tests check for presence of digits rather than exact format
     - Week numbers are 1-indexed and can go up to 53 in some years (ISO 8601 long years)
+
+* 2026-01-23 - Entry parsing with org-element
+- what was implemented
+  - Added entry parsing utilities to doing-lib.el using org-element API
+  - =doing--parse-entry-at-point ()= — parses headline at point into entry plist with :id, :title, :tags, :started, :ended, :project, :begin, :end
+  - =doing--parse-buffer ()= — returns list of all entries in current buffer by parsing with org-element-parse-buffer
+  - =doing--parse-file (path)= — returns list of entries from file at PATH, using temp buffer to avoid interfering with user's buffers
+  - Added 3 comprehensive tests covering single entry parsing, multiple entry parsing, and file parsing
+  - All 18 tests pass successfully (15 from previous phases + 3 new tests)
+- files changed
+  - doing-lib.el — added entry parsing section with three parsing functions
+  - tests/doing-test.el — added 3 new tests (doing-test-parse-entry-at-point, doing-test-parse-buffer-multiple, doing-test-parse-file)
+- learnings
+  - patterns discovered
+    - =org-element-at-point= returns parsed element at cursor position; check type with =org-element-type=
+    - =org-element-parse-buffer= with ='headline= granularity is fast and efficient for parsing entire buffers
+    - =org-element-map= with lambda function is the idiomatic way to traverse and extract data from parsed AST
+    - Properties from drawer are available via =org-element-property= with uppercase keyword symbols (e.g., =:ID=, =:STARTED=, =:PROJECT=)
+    - =:raw-value= property contains the headline text without tags
+    - =:tags= property returns a list of tag strings, or nil if no tags
+    - =:begin= and =:end= properties give buffer positions for the entry
+    - Using =with-temp-buffer= + =insert-file-contents= + =org-mode= is the pattern for parsing files without side effects
+    - Test files need proper Org structure with #+TITLE and blank lines between entries
+  - gotchas encountered
+    - Must call =org-mode= in temp buffer after inserting file contents, otherwise org-element functions won't work properly
+    - =org-element-at-point= returns nil (not an error) when point is not at a headline, so must check with =when=
+    - Property values are stored as strings in the element plist, including timestamps
+    - Tags are returned as a list, not a string, and empty tag lists are nil (not empty list)
+    - =find-file-noselect= opens buffers which remain open after tests, while =with-temp-buffer= cleans up automatically
+    - Tests creating multiple test files in same temp directory need unique filenames to avoid conflicts

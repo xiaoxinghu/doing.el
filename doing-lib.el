@@ -104,6 +104,48 @@ Uses ISO 8601 week date system."
 Format matches archive file naming: 2026-W04"
   (format-time-string "%G-W%V" (or time (current-time))))
 
+;;; Entry Parsing Utilities
+
+(defun doing--parse-entry-at-point ()
+  "Parse headline at point into entry plist.
+Returns a plist with keys: :id, :title, :tags, :started, :ended,
+:project, :begin, :end.
+Returns nil if point is not at a headline."
+  (let ((el (org-element-at-point)))
+    (when (eq 'headline (org-element-type el))
+      (list :id (org-element-property :ID el)
+            :title (org-element-property :raw-value el)
+            :tags (org-element-property :tags el)
+            :started (org-element-property :STARTED el)
+            :ended (org-element-property :ENDED el)
+            :project (org-element-property :PROJECT el)
+            :begin (org-element-property :begin el)
+            :end (org-element-property :end el)))))
+
+(defun doing--parse-buffer ()
+  "Return list of entries in current buffer.
+Each entry is a plist with keys: :id, :title, :tags, :started,
+:ended, :project, :begin."
+  (org-element-map (org-element-parse-buffer 'headline) 'headline
+    (lambda (hl)
+      (list :id (org-element-property :ID hl)
+            :title (org-element-property :raw-value hl)
+            :tags (org-element-property :tags hl)
+            :started (org-element-property :STARTED hl)
+            :ended (org-element-property :ENDED hl)
+            :project (org-element-property :PROJECT hl)
+            :begin (org-element-property :begin hl)))))
+
+(defun doing--parse-file (path)
+  "Return list of entries from file at PATH.
+Returns nil if file doesn't exist.
+Each entry is a plist with entry data."
+  (when (file-exists-p path)
+    (with-temp-buffer
+      (insert-file-contents path)
+      (org-mode)
+      (doing--parse-buffer))))
+
 (provide 'doing-lib)
 
 ;;; doing-lib.el ends here
