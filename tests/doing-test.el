@@ -13,6 +13,7 @@
 (require 'doing-current)
 (require 'doing-finish)
 (require 'doing-cancel)
+(require 'doing-note)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -1200,5 +1201,94 @@
 (ert-deftest doing-test-cancel-is-interactive ()
   "Test that `doing-cancel' is an interactive command."
   (should (commandp 'doing-cancel)))
+
+;;; Phase 12: doing-note tests
+
+(ert-deftest doing-test-note-appends-text ()
+  "Test that `doing-note' appends text to current entry body."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Task for notes")
+          ;; Add a note
+          (doing-note "This is a test note")
+          ;; Verify note was added to file
+          (with-temp-buffer
+            (insert-file-contents (doing--file-today))
+            (let ((content (buffer-string)))
+              (should (string-match-p "This is a test note" content))))
+          ;; Add another note
+          (doing-note "Second note line")
+          ;; Verify both notes are present
+          (with-temp-buffer
+            (insert-file-contents (doing--file-today))
+            (let ((content (buffer-string)))
+              (should (string-match-p "This is a test note" content))
+              (should (string-match-p "Second note line" content)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-note-error-when-no-current ()
+  "Test that `doing-note' signals error when no activity in progress."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Try to add note with no entry
+          (should-error (doing-note "Note without entry") :type 'user-error))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-note-after-properties ()
+  "Test that `doing-note' inserts text after properties drawer."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Entry with props")
+          ;; Add a note
+          (doing-note "Note after properties")
+          ;; Verify note comes after :END:
+          (with-temp-buffer
+            (insert-file-contents (doing--file-today))
+            (goto-char (point-min))
+            (let ((end-pos (re-search-forward "^:END:" nil t))
+                  (note-pos (re-search-forward "Note after properties" nil t)))
+              (should end-pos)
+              (should note-pos)
+              (should (< end-pos note-pos)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-note-shows-message ()
+  "Test that `doing-note' shows confirmation message."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Task for message test")
+          ;; Add note and check message
+          (let ((pos (with-current-buffer "*Messages*"
+                       (goto-char (point-max))
+                       (point))))
+            (doing-note "Test note")
+            ;; Check that message was displayed
+            (with-current-buffer "*Messages*"
+              (let ((output (buffer-substring pos (point-max))))
+                (should (string-match-p "Note added" output))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-note-is-interactive ()
+  "Test that `doing-note' is an interactive command."
+  (should (commandp 'doing-note)))
 
 ;;; doing-test.el ends here

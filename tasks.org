@@ -483,7 +483,15 @@ Delete using =org-cut-subtree=.
 - =doing-test-cancel-removes-entry=
 - =doing-test-cancel-error-when-no-current=
 
-** TODO =doing-note= — add note to current activity
+** DONE =doing-note= — add note to current activity
+:PROPERTIES:
+:ID:       BFECDA3A-6D8A-4A41-961E-2C67AF9BF515
+:CLAUDE_TIME_MS: 200397
+:CLAUDE_COST: 0.8498905000000002
+:CLAUDE_INPUT_TOKENS: 68
+:CLAUDE_OUTPUT_TOKENS: 5882
+:CLAUDE_SESSION_ID: 5ae6585f-f167-4999-ba4e-a8c0070cceb4
+:END:
 
 Append to entry body.
 

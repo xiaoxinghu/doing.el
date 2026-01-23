@@ -36,6 +36,7 @@
 (require 'doing-current)
 (require 'doing-finish)
 (require 'doing-cancel)
+(require 'doing-note)
 
 ;;; Customization
 

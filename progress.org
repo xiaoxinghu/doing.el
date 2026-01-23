@@ -364,3 +364,44 @@
     - Tests must verify both that entry is deleted (when confirmed) and preserved (when aborted)
     - =org-cut-subtree= shows "Cut: Subtree(s)" messages in test output which is normal org behavior
     - Cancellation is destructive and irreversible - confirmation prompt is essential for user safety
+
+* 2026-01-23 - doing-note — add notes to current activity
+- what was implemented
+  - Created doing-note.el with the =doing-note= command for adding notes to current unfinished activity
+  - Command prompts for text and appends it to the body of the current entry
+  - Uses =org-end-of-meta-data t= to position cursor after properties drawer for insertion
+  - Uses =find-file-noselect= to edit file without displaying buffer
+  - Leverages =doing--goto-entry= to navigate to entry by ID
+  - Displays confirmation message "Note added"
+  - Signals =user-error= when no activity is in progress
+  - Added 5 comprehensive tests for doing-note functionality
+  - All 56 tests pass successfully (51 from previous phases + 5 new tests)
+  - Package compiles cleanly without warnings
+- files changed
+  - doing-note.el — new feature file with =doing-note= command
+  - doing.el — added =(require 'doing-note)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-note)= and Phase 12 with 5 new tests:
+    - doing-test-note-appends-text — tests note appending, multiple notes to same entry
+    - doing-test-note-error-when-no-current — tests user-error when no activity exists
+    - doing-test-note-after-properties — validates note position after :END: marker
+    - doing-test-note-shows-message — validates confirmation message display
+    - doing-test-note-is-interactive — verifies command has interactive declaration
+- learnings
+  - patterns discovered
+    - Following established pattern: feature file named =doing-note.el=, follows module structure from previous features
+    - Reusing =doing--current-entry= from doing-current.el demonstrates good code reuse between feature modules
+    - =doing-note= requires =doing-current= module since it depends on =doing--current-entry= helper
+    - =org-end-of-meta-data t= is the standard way to position after properties drawer, moving past scheduled/deadline/planning lines
+    - Using =find-file-noselect= to edit files programmatically without displaying the buffer to user
+    - =save-excursion= wraps the editing operations to preserve point position in case buffer is visible
+    - Text insertion followed by newline ensures proper spacing between multiple notes
+    - Comprehensive test coverage includes: text appending, multiple notes, error conditions, message output, insertion position
+    - Testing insertion position uses file content search with =re-search-forward= to verify ordering
+  - gotchas encountered
+    - Must =(require 'doing-current)= in doing-note.el to access =doing--current-entry= function
+    - =org-end-of-meta-data t= with argument =t= moves past planning info (SCHEDULED, DEADLINE), not just properties drawer
+    - Note text is inserted with trailing newline to ensure proper spacing between consecutive notes
+    - Tests verify position by searching for :END: marker and note text, confirming note comes after properties
+    - =save-buffer= is necessary to persist changes to file after insertion
+    - Interactive prompt uses "sNote: " where "s" indicates string input (similar to other doing commands)
+    - Message testing pattern established in previous features applies here: capture from *Messages* buffer before/after
