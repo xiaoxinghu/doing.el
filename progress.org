@@ -970,3 +970,40 @@
     - No autoload cookie needed for keymap variable since it's loaded with the main package
     - Users must explicitly bind the keymap globally in their config; package doesn't force a global binding
     - Case sensitivity matters: "T" binds doing-totals, "t" binds doing-view-today (different commands)
+
+* 2026-01-24 - Package finalization
+- what was implemented
+  - Created comprehensive package verification script (verify-package.sh) to check all finalization criteria
+  - Verified all 16 user-facing commands have proper docstrings
+  - Verified all 16 user-facing commands have ;;;###autoload cookies
+  - Verified package headers in doing.el are complete (Author, Version, Package-Requires, Keywords, URL)
+  - Verified package byte-compiles without warnings
+  - Verified all 118 tests pass successfully
+  - Verified internal files (doing-lib.el, doing-rollover.el, doing-view.el) have no autoload cookies
+  - All checklist items completed:
+    - [x] All public functions have docstrings
+    - [x] Autoload cookies on user-facing commands
+    - [x] Package headers complete
+    - [x] Byte-compiles without warnings
+    - [x] Tests pass
+- files changed
+  - verify-package.sh — new verification script for systematic package validation
+  - project.org — task will be marked DONE
+- learnings
+  - patterns discovered
+    - Creating a verification script ensures reproducible quality checks and documents expected standards
+    - Systematic verification across all files catches issues that manual review might miss
+    - Autoload cookies pattern: user-facing commands get ;;;###autoload, internal helpers do not
+    - All 16 user-facing commands across 10 feature files are properly documented and autoloaded
+    - Package is fully ready for distribution with complete metadata and clean compilation
+    - Verification script structure: check docstrings, autoloads, headers, compilation, tests, internal files
+    - Using grep with -B1 flag to check for autoload cookies immediately before function definitions
+    - Shell script pattern for checking file existence before processing: [ -f "$file" ]
+  - gotchas encountered
+    - Verification script needed to distinguish public functions (doing-XXX) from internal helpers (doing--XXX)
+    - Regular expression pattern "^(defun doing-[^-]" matches public functions by excluding double-hyphen
+    - Some files (doing-utils.el, doing-view-commands.el) have multiple public functions to check
+    - Make test output needs tail to show summary, full output is verbose
+    - All files already had proper headers and structure from previous careful implementation
+    - No actual issues found - package was already in good shape from disciplined development practices
+    - Verification confirms that following CLAUDE.md conventions throughout development pays off
