@@ -325,3 +325,42 @@
     - Cannot finish twice in a row - second call errors because first finish removes the "current" entry
     - Tests preserve other entry properties (tags, ID, STARTED) and validate they survive the finish operation
     - Message testing pattern established in doing-current tests applies here: capture from *Messages* buffer
+
+* 2026-01-23 - doing-cancel — cancel current activity
+- what was implemented
+  - Created doing-cancel.el with the =doing-cancel= command for canceling current unfinished activity
+  - Command prompts user with =yes-or-no-p= for confirmation before deletion
+  - Uses existing =doing--current-entry= helper from doing-current.el to find unfinished entry
+  - Leverages =doing--delete-entry= to completely remove entry using =org-cut-subtree=
+  - Displays cancellation message showing task title
+  - Signals =user-error= when no activity is in progress
+  - Added 5 comprehensive tests for doing-cancel functionality
+  - All 51 tests pass successfully (46 from previous phases + 5 new tests)
+  - Package compiles cleanly without warnings
+- files changed
+  - doing-cancel.el — new feature file with =doing-cancel= command
+  - doing.el — added =(require 'doing-cancel)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-cancel)= and Phase 11 with 5 new tests:
+    - doing-test-cancel-removes-entry — validates entry deletion with yes-or-no-p confirmation
+    - doing-test-cancel-error-when-no-current — tests user-error when no activity exists
+    - doing-test-cancel-with-user-abort — tests that entry is preserved when user answers no
+    - doing-test-cancel-shows-message — validates cancellation message contains title
+    - doing-test-cancel-is-interactive — verifies command has interactive declaration
+- learnings
+  - patterns discovered
+    - Following established pattern: feature file named =doing-cancel.el=, follows module structure from previous features
+    - Reusing =doing--current-entry= from doing-current.el demonstrates good code reuse between feature modules
+    - =doing-cancel= requires =doing-current= module since it depends on =doing--current-entry= helper
+    - =yes-or-no-p= is the standard Emacs function for confirmation prompts requiring full word input
+    - =doing--delete-entry= with ID parameter handles complete removal including subtree content
+    - Comprehensive test coverage includes: confirmation flow, error conditions, message output, user abort scenario
+    - Using =cl-letf= to temporarily override =yes-or-no-p= in tests allows testing both confirmation branches
+    - Testing user abort (answering no) ensures graceful handling without data loss
+  - gotchas encountered
+    - Must =(require 'doing-current)= in doing-cancel.el to access =doing--current-entry= function
+    - =yes-or-no-p= requires user to type full "yes" or "no" (not just y/n), appropriate for destructive operations
+    - =cl-letf= requires proper lambda form: =(lambda (_) t)= or =(lambda (_) nil)= to override =yes-or-no-p=
+    - When user answers no to confirmation, function returns normally without error (expected behavior)
+    - Tests must verify both that entry is deleted (when confirmed) and preserved (when aborted)
+    - =org-cut-subtree= shows "Cut: Subtree(s)" messages in test output which is normal org behavior
+    - Cancellation is destructive and irreversible - confirmation prompt is essential for user safety

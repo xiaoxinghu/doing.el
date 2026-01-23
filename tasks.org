@@ -450,7 +450,15 @@ Mark current activity complete using =org-entry-put=.
 - =doing-test-finish-sets-duration=
 - =doing-test-finish-error-when-no-current=
 
-** TODO =doing-cancel= — cancel current activity
+** DONE =doing-cancel= — cancel current activity
+:PROPERTIES:
+:ID:       A44F70FF-AA45-4612-A79E-8CE4D8DA4380
+:CLAUDE_TIME_MS: 137236
+:CLAUDE_COST: 0.8163093499999999
+:CLAUDE_INPUT_TOKENS: 66
+:CLAUDE_OUTPUT_TOKENS: 5321
+:CLAUDE_SESSION_ID: b263ddb3-1ce8-4033-8cc9-eb52cf0c9ef6
+:END:
 
 Delete using =org-cut-subtree=.
 

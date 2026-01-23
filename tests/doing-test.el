@@ -12,6 +12,7 @@
 (require 'doing-now)
 (require 'doing-current)
 (require 'doing-finish)
+(require 'doing-cancel)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -1119,5 +1120,85 @@
 (ert-deftest doing-test-finish-is-interactive ()
   "Test that `doing-finish' is an interactive command."
   (should (commandp 'doing-finish)))
+
+;;; Phase 11: doing-cancel tests
+
+(ert-deftest doing-test-cancel-removes-entry ()
+  "Test that `doing-cancel' removes the current entry."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Task to cancel")
+          ;; Verify entry exists
+          (let ((entries-before (doing--parse-file (doing--file-today))))
+            (should (= (length entries-before) 1)))
+          ;; Cancel with non-interactive yes
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+            (doing-cancel))
+          ;; Verify entry is removed
+          (let ((entries-after (doing--parse-file (doing--file-today))))
+            (should (= (length entries-after) 0))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-cancel-error-when-no-current ()
+  "Test that `doing-cancel' signals error when no activity in progress."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Try to cancel with no entry
+          (should-error (doing-cancel) :type 'user-error))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-cancel-with-user-abort ()
+  "Test that `doing-cancel' preserves entry when user says no."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Task to keep")
+          ;; Try to cancel but answer no
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) nil)))
+            (doing-cancel))
+          ;; Verify entry still exists
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (should (string= (plist-get (car entries) :title) "Task to keep"))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-cancel-shows-message ()
+  "Test that `doing-cancel' shows appropriate cancellation message."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Task with message")
+          ;; Cancel and check message
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+            (let ((pos (with-current-buffer "*Messages*"
+                         (goto-char (point-max))
+                         (point))))
+              (doing-cancel)
+              ;; Check that message was displayed
+              (with-current-buffer "*Messages*"
+                (let ((output (buffer-substring pos (point-max))))
+                  (should (string-match-p "Cancelled: Task with message" output)))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-cancel-is-interactive ()
+  "Test that `doing-cancel' is an interactive command."
+  (should (commandp 'doing-cancel)))
 
 ;;; doing-test.el ends here
