@@ -186,6 +186,50 @@ Creates the file with proper Org header if it doesn't exist."
     (insert (doing--entry-to-org entry))
     (append-to-file (point-min) (point-max) path)))
 
+;;; Entry Modification Utilities
+
+(defun doing--goto-entry (id &optional file)
+  "Go to entry with ID in FILE (default today.org).
+Returns point if entry is found, nil otherwise.
+Leaves point at the beginning of the entry headline.
+Must be called within the buffer containing the entry."
+  (let ((file (or file (doing--file-today))))
+    (when (file-exists-p file)
+      (goto-char (point-min))
+      (when (re-search-forward
+             (format "^[ \t]*:ID:[ \t]+%s[ \t]*$" (regexp-quote id))
+             nil t)
+        (org-back-to-heading t)
+        (point)))))
+
+(defun doing--update-entry-property (id property value &optional file)
+  "Set PROPERTY to VALUE for entry with ID in FILE.
+FILE defaults to today.org if not specified.
+Uses `org-entry-put' to update the property.
+Returns t if successful, nil if entry not found."
+  (let ((file (or file (doing--file-today))))
+    (when (file-exists-p file)
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (when (doing--goto-entry id file)
+            (org-entry-put nil property value)
+            (save-buffer)
+            t))))))
+
+(defun doing--delete-entry (id &optional file)
+  "Delete entry with ID from FILE.
+FILE defaults to today.org if not specified.
+Uses `org-cut-subtree' to remove the entire entry.
+Returns t if successful, nil if entry not found."
+  (let ((file (or file (doing--file-today))))
+    (when (file-exists-p file)
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (when (doing--goto-entry id file)
+            (org-cut-subtree)
+            (save-buffer)
+            t))))))
+
 (provide 'doing-lib)
 
 ;;; doing-lib.el ends here

@@ -253,7 +253,15 @@ Write entry plists as Org headlines using built-in functions.
 - =doing-test-entry-to-org-with-tags=
 - =doing-test-append-entry-to-file=
 
-** TODO Entry modification using org-entry API
+** DONE Entry modification using org-entry API
+:PROPERTIES:
+:ID:       5C9C0A9D-BD5D-42AE-9418-3DEEC8AA2AEB
+:CLAUDE_TIME_MS: 222097
+:CLAUDE_COST: 0.9346406000000002
+:CLAUDE_INPUT_TOKENS: 72
+:CLAUDE_OUTPUT_TOKENS: 11062
+:CLAUDE_SESSION_ID: b2debe50-71f5-4708-90d9-8a6e22b95d4a
+:END:
 
 Use =org-entry-put= and =org-entry-get= for modifications. *Do not use regex.*
 

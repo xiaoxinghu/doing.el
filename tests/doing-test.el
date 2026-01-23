@@ -526,4 +526,234 @@
     (should (string-match-p "Testing all properties\\." result))
     (should (string-match-p "Multiple lines of notes\\." result))))
 
+;;; Phase 6: Entry modification tests
+
+(ert-deftest doing-test-goto-entry ()
+  "Test that `doing--goto-entry' finds and navigates to entry by ID."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file with multiple entries
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* First entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       first-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 10:00]\n")
+            (insert ":END:\n\n")
+            (insert "* Second entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       second-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 11:00]\n")
+            (insert ":END:\n\n")
+            (insert "* Third entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       third-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 12:00]\n")
+            (insert ":END:\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Test finding each entry
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (let ((pos-first (save-excursion (doing--goto-entry "first-id" test-file)))
+                  (pos-second (save-excursion (doing--goto-entry "second-id" test-file)))
+                  (pos-third (save-excursion (doing--goto-entry "third-id" test-file)))
+                  (pos-missing (save-excursion (doing--goto-entry "nonexistent-id" test-file))))
+              ;; Should find all three entries
+              (should (numberp pos-first))
+              (should (numberp pos-second))
+              (should (numberp pos-third))
+              ;; Should return nil for missing entry
+              (should (null pos-missing))
+              ;; Positions should be different
+              (should (< pos-first pos-second))
+              (should (< pos-second pos-third))))
+          ;; Verify that point is at headline when found
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (when (doing--goto-entry "second-id" test-file)
+              (should (looking-at "^\\* Second entry")))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-update-property ()
+  "Test that `doing--update-entry-property' updates properties correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file with entry
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* Test entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       test-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 10:00]\n")
+            (insert ":END:\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Update ENDED property
+          (let ((result (doing--update-entry-property
+                         "test-id" "ENDED" "[2026-01-23 Thu 11:00]" test-file)))
+            ;; Should return t for success
+            (should (eq result t)))
+          ;; Verify property was updated
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (when (doing--goto-entry "test-id" test-file)
+              (should (string= (org-entry-get nil "ENDED")
+                              "[2026-01-23 Thu 11:00]"))))
+          ;; Update DURATION property
+          (doing--update-entry-property "test-id" "DURATION" "1:00" test-file)
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (when (doing--goto-entry "test-id" test-file)
+              (should (string= (org-entry-get nil "DURATION") "1:00"))))
+          ;; Update PROJECT property
+          (doing--update-entry-property "test-id" "PROJECT" "test-project" test-file)
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (when (doing--goto-entry "test-id" test-file)
+              (should (string= (org-entry-get nil "PROJECT") "test-project"))))
+          ;; Test updating non-existent entry
+          (let ((result (doing--update-entry-property
+                         "nonexistent-id" "ENDED" "[2026-01-23 Thu 11:00]" test-file)))
+            ;; Should return nil for failure
+            (should (null result))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-delete-entry ()
+  "Test that `doing--delete-entry' removes entries correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file with three entries
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* First entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       first-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 10:00]\n")
+            (insert ":END:\n")
+            (insert "Some notes for first entry.\n\n")
+            (insert "* Second entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       second-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 11:00]\n")
+            (insert ":END:\n\n")
+            (insert "* Third entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       third-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 12:00]\n")
+            (insert ":END:\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Verify all three entries exist
+          (let ((entries (doing--parse-file test-file)))
+            (should (= (length entries) 3)))
+          ;; Delete second entry
+          (let ((result (doing--delete-entry "second-id" test-file)))
+            ;; Should return t for success
+            (should (eq result t)))
+          ;; Verify only two entries remain
+          (let ((entries (doing--parse-file test-file)))
+            (should (= (length entries) 2))
+            ;; First and third should remain
+            (should (string= (plist-get (nth 0 entries) :id) "first-id"))
+            (should (string= (plist-get (nth 1 entries) :id) "third-id"))
+            ;; Second should be gone
+            (should-not (seq-find (lambda (e)
+                                    (string= (plist-get e :id) "second-id"))
+                                  entries)))
+          ;; Verify file content doesn't contain deleted entry
+          (with-temp-buffer
+            (insert-file-contents test-file)
+            (should-not (string-match-p "Second entry" (buffer-string))))
+          ;; Delete first entry
+          (doing--delete-entry "first-id" test-file)
+          (let ((entries (doing--parse-file test-file)))
+            (should (= (length entries) 1))
+            (should (string= (plist-get (nth 0 entries) :id) "third-id")))
+          ;; Test deleting non-existent entry
+          (let ((result (doing--delete-entry "nonexistent-id" test-file)))
+            ;; Should return nil for failure
+            (should (null result)))
+          ;; Verify count didn't change
+          (let ((entries (doing--parse-file test-file)))
+            (should (= (length entries) 1))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-goto-entry-with-whitespace ()
+  "Test that `doing--goto-entry' handles property drawer whitespace."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file with varying whitespace in property drawer
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* Entry with tabs\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:\t\ttest-id-tabs\n")  ; tabs after ID
+            (insert ":STARTED:  [2026-01-23 Thu 10:00]\n")
+            (insert ":END:\n\n")
+            (insert "* Entry with spaces\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:   test-id-spaces\n")  ; multiple spaces
+            (insert ":STARTED:  [2026-01-23 Thu 11:00]\n")
+            (insert ":END:\n\n")
+            (insert "* Entry minimal\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID: test-id-minimal\n")  ; single space
+            (insert ":STARTED:  [2026-01-23 Thu 12:00]\n")
+            (insert ":END:\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Should find all entries regardless of whitespace
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (should (numberp (save-excursion (doing--goto-entry "test-id-tabs" test-file))))
+            (should (numberp (save-excursion (doing--goto-entry "test-id-spaces" test-file))))
+            (should (numberp (save-excursion (doing--goto-entry "test-id-minimal" test-file))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-update-property-multiple ()
+  "Test updating multiple properties on the same entry."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir)))
+    (unwind-protect
+        (progn
+          ;; Create test file with minimal entry
+          (with-temp-buffer
+            (insert "#+TITLE: Test\n\n")
+            (insert "* Test entry\n")
+            (insert ":PROPERTIES:\n")
+            (insert ":ID:       test-id\n")
+            (insert ":STARTED:  [2026-01-23 Thu 10:00]\n")
+            (insert ":END:\n")
+            (write-region (point-min) (point-max) test-file))
+          ;; Update multiple properties
+          (doing--update-entry-property "test-id" "ENDED" "[2026-01-23 Thu 11:30]" test-file)
+          (doing--update-entry-property "test-id" "DURATION" "1:30" test-file)
+          (doing--update-entry-property "test-id" "PROJECT" "my-project" test-file)
+          (doing--update-entry-property "test-id" "CONTEXT" "work" test-file)
+          ;; Verify all properties are set
+          (with-current-buffer (find-file-noselect test-file)
+            (org-mode)
+            (when (doing--goto-entry "test-id" test-file)
+              (should (string= (org-entry-get nil "STARTED") "[2026-01-23 Thu 10:00]"))
+              (should (string= (org-entry-get nil "ENDED") "[2026-01-23 Thu 11:30]"))
+              (should (string= (org-entry-get nil "DURATION") "1:30"))
+              (should (string= (org-entry-get nil "PROJECT") "my-project"))
+              (should (string= (org-entry-get nil "CONTEXT") "work")))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
 ;;; doing-test.el ends here

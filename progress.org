@@ -142,3 +142,47 @@
     - File must exist before appending, so always call =doing--ensure-file= first to handle the case of new files
     - Format string alignment in properties drawer uses multiple spaces (":ID:       value") for visual consistency, matching Org-mode conventions
     - Body text should include trailing newline when present to ensure proper spacing between entries
+
+* 2026-01-23 - Entry modification using org-entry API
+- what was implemented
+  - Added entry modification utilities to doing-lib.el for editing and deleting entries
+  - =doing--goto-entry (id &optional file)= — navigates to entry by ID within a buffer
+    - Searches for =:ID:= property using regex to handle whitespace variations
+    - Uses =org-back-to-heading= to position point at headline start
+    - Returns point if found, nil otherwise
+  - =doing--update-entry-property (id property value &optional file)= — updates entry properties
+    - Uses =org-entry-put= to modify properties without manual text manipulation
+    - Automatically saves buffer after update
+    - Returns t on success, nil if entry not found
+  - =doing--delete-entry (id &optional file)= — removes entire entry
+    - Uses =org-cut-subtree= to delete entry and all its content
+    - Automatically saves buffer after deletion
+    - Returns t on success, nil if entry not found
+  - Added 5 comprehensive tests covering all modification scenarios
+  - All 30 tests pass successfully (25 from previous phases + 5 new tests)
+- files changed
+  - doing-lib.el — added Entry Modification Utilities section with three new functions
+  - tests/doing-test.el — added Phase 6 with 5 new tests:
+    - doing-test-goto-entry — tests finding entries by ID and position handling
+    - doing-test-update-property — tests property updates with org-entry-put
+    - doing-test-delete-entry — tests entry deletion with org-cut-subtree
+    - doing-test-goto-entry-with-whitespace — tests robustness to property drawer formatting
+    - doing-test-update-property-multiple — tests updating multiple properties on same entry
+- learnings
+  - patterns discovered
+    - =doing--goto-entry= must be called within the buffer context (uses point implicitly)
+    - =org-entry-put= with =nil= as first argument operates on entry at point
+    - =org-cut-subtree= removes entire subtree including body and nested headings
+    - =org-back-to-heading= reliably positions point at headline start after property search
+    - Using =save-excursion= in wrapper functions allows goto-entry to modify point without affecting caller
+    - Regular expression =^[ \t]*:ID:[ \t]+%s[ \t]*$= handles various whitespace styles in property drawers
+    - =find-file-noselect= opens file buffer without displaying it, useful for programmatic access
+    - Tests should use =save-excursion= when calling functions that move point to avoid test interference
+  - gotchas encountered
+    - Initial implementation wrapped =doing--goto-entry= in =save-excursion=, but it needs to actually move point for =org-entry-put= and =org-cut-subtree= to work
+    - =doing--goto-entry= cannot determine buffer context itself - caller must ensure correct buffer is current
+    - Tests calling =doing--goto-entry= directly need to establish buffer context with =with-current-buffer=
+    - Property drawer whitespace is inconsistent (tabs vs spaces), so regex must be flexible: =[ \t]+= not just spaces
+    - =org-cut-subtree= shows "Cut: Subtree(s)" messages even in batch mode - this is normal org behavior
+    - Must call =org-mode= on buffers created from file contents or org-element functions won't work properly
+    - =org-entry-get= returns =nil= (not empty string) for missing properties, must use =(string= value ...)= in tests
