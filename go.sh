@@ -5,7 +5,7 @@ task_id=$(emacs --batch tasks.org \
   -l ./batch.el \
   --eval "(my-org-next-task)")
 
-output_dir=".$task_id"
+output_dir=".vibe/$task_id"
 mkdir -p "$output_dir"
 
 emacs --batch tasks.org \
