@@ -20,6 +20,7 @@
 (require 'doing-view-commands)
 (require 'doing-totals)
 (require 'doing-search)
+(require 'doing-utils)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -2956,5 +2957,155 @@
   "Test that `doing-auto-tags' has proper customization type."
   (should (boundp 'doing-auto-tags))
   (should (get 'doing-auto-tags 'custom-type)))
+
+;;; Phase 23: Utility commands (doing-last, doing-edit, doing-open)
+
+(ert-deftest doing-test-last-shows-entry ()
+  "Test that `doing-last' shows the most recent entry."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+          ;; Create two entries
+          (doing-now "First task" '("tag1"))
+          (sleep-for 0.01)
+          (doing-now "Second task" '("tag2"))
+
+          ;; Get message buffer position before calling doing-last
+          (with-current-buffer "*Messages*"
+            (goto-char (point-max))
+            (let ((msg-start (point)))
+              (doing-last)
+              (goto-char msg-start)
+              ;; Should show "Second task *" since it's unfinished
+              (should (search-forward "Second task *" nil t)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-last-shows-finished ()
+  "Test that `doing-last' shows finished entry without asterisk."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+          ;; Create and finish an entry
+          (doing-now "Finished task" nil)
+          (sleep-for 0.01)
+          (doing-finish)
+
+          ;; Get message buffer position before calling doing-last
+          (with-current-buffer "*Messages*"
+            (goto-char (point-max))
+            (let ((msg-start (point)))
+              (doing-last)
+              (goto-char msg-start)
+              ;; Should show "Finished task" without asterisk
+              (should (search-forward "Finished task" nil t))
+              ;; Should NOT have asterisk after
+              (should-not (string-match-p "Finished task \\*"
+                                         (buffer-substring msg-start (point-max)))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-last-no-entries ()
+  "Test that `doing-last' handles empty file gracefully."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Ensure empty file exists
+          (doing--ensure-file (doing--file-today))
+
+          ;; Get message buffer position before calling doing-last
+          (with-current-buffer "*Messages*"
+            (goto-char (point-max))
+            (let ((msg-start (point)))
+              (doing-last)
+              (goto-char msg-start)
+              ;; Should show "No entries" message
+              (should (search-forward "No entries" nil t)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-edit-opens-file ()
+  "Test that `doing-edit' opens today.org and jumps to current entry."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+          ;; Create an entry
+          (doing-now "Test task" '("tag"))
+
+          ;; Get entry details before opening
+          (let* ((entries (doing--parse-file (doing--file-today)))
+                 (entry (car entries))
+                 (entry-id (plist-get entry :id)))
+
+            ;; Call doing-edit
+            (doing-edit)
+
+            ;; Verify we're in the right buffer
+            (should (string= (buffer-file-name) (doing--file-today)))
+
+            ;; Verify point is at the entry (should be able to see the ID)
+            (should (org-entry-get nil "ID"))
+            (should (string= (org-entry-get nil "ID") entry-id))
+
+            ;; Close the buffer
+            (kill-buffer (current-buffer))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-open-default ()
+  "Test that `doing-open' opens today.org by default."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Ensure file exists
+          (doing--ensure-file (doing--file-today))
+
+          ;; Call doing-open without argument
+          (doing-open)
+
+          ;; Verify we're in the right buffer
+          (should (string= (buffer-file-name) (doing--file-today)))
+
+          ;; Close the buffer
+          (kill-buffer (current-buffer)))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-open-week ()
+  "Test that `doing-open' can open week.org."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Ensure file exists
+          (doing--ensure-file (doing--file-week))
+
+          ;; Call doing-open with "week" argument
+          (doing-open "week")
+
+          ;; Verify we're in the right buffer
+          (should (string= (buffer-file-name) (doing--file-week)))
+
+          ;; Close the buffer
+          (kill-buffer (current-buffer)))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-utils-are-interactive ()
+  "Test that utility commands are interactive."
+  (should (commandp 'doing-last))
+  (should (commandp 'doing-edit))
+  (should (commandp 'doing-open)))
 
 ;;; doing-test.el ends here

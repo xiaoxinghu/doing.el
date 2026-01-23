@@ -885,3 +885,56 @@
     - Tests =doing-test-auto-tags-applied-on-capture= and =doing-test-auto-tags-merge-with-user-tags= already existed
     - This demonstrates importance of updating task tracking immediately after implementation
     - Progress log should be updated synchronously with code changes to avoid confusion
+
+* 2026-01-24 - Utility commands (doing-last, doing-edit, doing-open)
+- what was implemented
+  - Created doing-utils.el with three utility commands for inspecting and editing entries
+  - =doing-last= — displays most recent entry in minibuffer with active marker (*)
+    - Shows asterisk for unfinished entries, no asterisk for finished entries
+    - Displays "No entries" message when file is empty
+  - =doing-edit= — opens today.org and jumps to current entry
+    - Uses =doing--current-entry= to find active entry
+    - Jumps to entry position and shows context with =org-show-context= or =org-fold-show-context=
+    - Compatibility shim for Org 9.6+ which renamed the function
+  - =doing-open= — opens doing log files directly
+    - Opens today.org by default
+    - With prefix arg, prompts to choose between "today" and "week" files
+    - Uses =completing-read= for file selection
+  - All three commands are interactive with ;;;###autoload cookies
+  - Added 7 comprehensive tests covering all functionality
+  - All 115 tests pass successfully (108 from previous phases + 7 new tests)
+  - Package compiles cleanly with backward compatibility for Org versions
+- files changed
+  - doing-utils.el — new feature file with three utility commands
+  - doing.el — added =(require 'doing-utils)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-utils)= and Phase 23 with 7 new tests:
+    - doing-test-last-shows-entry — tests display of unfinished entry with asterisk
+    - doing-test-last-shows-finished — tests display of finished entry without asterisk
+    - doing-test-last-no-entries — tests graceful handling of empty file
+    - doing-test-edit-opens-file — tests file opening and navigation to current entry
+    - doing-test-open-default — tests default behavior (opens today.org)
+    - doing-test-open-week — tests opening week.org with argument
+    - doing-test-utils-are-interactive — verifies all three commands are interactive
+- learnings
+  - patterns discovered
+    - Following established file naming pattern: =doing-utils.el= for utility commands
+    - Utility commands are simple wrappers around existing infrastructure (doing--parse-file, doing--current-entry)
+    - =doing-last= uses =car= and =last= to get most recent entry from list
+    - Active marker (*) distinguishes unfinished entries visually, consistent with view commands
+    - =doing-edit= combines =find-file= with navigation via =goto-char= and context display
+    - =doing-open= uses =pcase= to match file argument and return appropriate path
+    - Interactive spec for =doing-open= uses conditional prompt: =(when current-prefix-arg ...)=
+    - Message buffer testing pattern established in earlier phases applies here
+    - Tests verify both message content and buffer state for comprehensive coverage
+    - Backward compatibility using =fboundp= to check for function availability before calling
+  - gotchas encountered
+    - Compilation warning: =org-show-context= is obsolete in Org 9.6+, replaced by =org-fold-show-context=
+    - Solution: use =fboundp= to check which function is available and call appropriately
+    - This maintains compatibility with Org 9.0+ (package requirement) while avoiding warnings on newer versions
+    - =doing-edit= requires =doing-current= module for =doing--current-entry= helper
+    - Tests for =doing-edit= must verify both buffer name and entry ID to ensure correct navigation
+    - =org-entry-get nil "ID"= retrieves ID property at point, used to verify navigation
+    - Buffer cleanup in tests with =kill-buffer= prevents interference between test runs
+    - Interactive command testing uses =commandp= predicate rather than checking for interactive-form directly
+    - Message testing requires capturing from *Messages* buffer before and after command execution
+    - String pattern matching for asterisk requires escaping: ="\\*"= in =string-match-p=

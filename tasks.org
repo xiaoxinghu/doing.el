@@ -1120,9 +1120,14 @@ Modify =doing-now=:
 
 Remaining commands.
 
-** TODO =doing-last=, =doing-edit=, =doing-open=
+** DONE =doing-last=, =doing-edit=, =doing-open=
 :PROPERTIES:
 :ID:       3BBD15C5-F604-42D6-BEBF-01742F5AD4B1
+:CLAUDE_TIME_MS: 219328
+:CLAUDE_COST: 0.9769451000000005
+:CLAUDE_INPUT_TOKENS: 72
+:CLAUDE_OUTPUT_TOKENS: 7042
+:CLAUDE_SESSION_ID: d9a2d367-17c2-4173-b51d-9874eaf3e731
 :END:
 
 Utility commands.
