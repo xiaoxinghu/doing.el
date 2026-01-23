@@ -921,7 +921,15 @@ Group and sum by tag/project.
 
 - =doing-test-totals-by-tag=
 
-** TODO =doing-totals=
+** DONE =doing-totals=
+:PROPERTIES:
+:ID:       B15D2A7B-6B77-4B96-BB78-1885BA07BDC9
+:CLAUDE_TIME_MS: 118146
+:CLAUDE_COST: 0.6739041500000003
+:CLAUDE_INPUT_TOKENS: 45
+:CLAUDE_OUTPUT_TOKENS: 2930
+:CLAUDE_SESSION_ID: 59cad59c-d449-45f2-911c-29c569bab023
+:END:
 
 Show time totals.
 
