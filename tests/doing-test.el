@@ -2324,4 +2324,197 @@
   (should (commandp 'doing-view-yesterday))
   (should (commandp 'doing-view-week)))
 
+;;; Phase 19: View commands - recent and since
+
+(ert-deftest doing-test-view-recent-limits ()
+  "Test that `doing-view-recent' limits to N most recent entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create 5 entries with different timestamps
+          (dotimes (i 5)
+            (let* ((offset (* i 60))  ; 1 minute apart
+                   (time (time-subtract (current-time) (seconds-to-time offset)))
+                   (timestamp (format-time-string "[%Y-%m-%d %a %H:%M]" time))
+                   (entry (list :id (format "test-%d" i)
+                                :title (format "Task %d" i)
+                                :tags '("test")
+                                :started timestamp)))
+              (doing--append-entry-to-file entry (doing--file-today))))
+          ;; View recent 3
+          (doing-view-recent 3)
+          ;; Should show only 3 entries
+          (should (get-buffer "*doing: recent (3)*"))
+          (with-current-buffer "*doing: recent (3)*"
+            (let ((content (buffer-string)))
+              ;; Most recent 3 are Task 0, Task 1, Task 2
+              (should (string-match-p "Task 0" content))
+              (should (string-match-p "Task 1" content))
+              (should (string-match-p "Task 2" content))
+              ;; Task 3 and Task 4 should not appear
+              (should-not (string-match-p "Task 3" content))
+              (should-not (string-match-p "Task 4" content)))
+            (goto-char (point-min))
+            (should (search-forward "Total:" nil t)))
+          ;; Cleanup buffer
+          (kill-buffer "*doing: recent (3)*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-recent-default ()
+  "Test that `doing-view-recent' defaults to 10 entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create 3 entries
+          (dotimes (i 3)
+            (let* ((entry (list :id (format "test-%d" i)
+                                :title (format "Task %d" i)
+                                :tags '("test")
+                                :started (doing--timestamp-now))))
+              (doing--append-entry-to-file entry (doing--file-today))))
+          ;; View recent without argument (should default to 10, but only show 3)
+          (doing-view-recent)
+          (should (get-buffer "*doing: recent (3)*"))
+          (with-current-buffer "*doing: recent (3)*"
+            (let ((content (buffer-string)))
+              (should (string-match-p "Task 0" content))
+              (should (string-match-p "Task 1" content))
+              (should (string-match-p "Task 2" content))))
+          (kill-buffer "*doing: recent (3)*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-recent-sorting ()
+  "Test that `doing-view-recent' shows entries in reverse chronological order."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create entries with explicit past timestamps
+          (let* ((now (current-time))
+                 (hour-ago (time-subtract now (seconds-to-time 3600)))
+                 (two-hours-ago (time-subtract now (seconds-to-time 7200))))
+            (doing--append-entry-to-file
+             (list :id "oldest"
+                   :title "Oldest task"
+                   :tags '("test")
+                   :started (format-time-string "[%Y-%m-%d %a %H:%M]" two-hours-ago))
+             (doing--file-today))
+            (doing--append-entry-to-file
+             (list :id "middle"
+                   :title "Middle task"
+                   :tags '("test")
+                   :started (format-time-string "[%Y-%m-%d %a %H:%M]" hour-ago))
+             (doing--file-today))
+            (doing--append-entry-to-file
+             (list :id "newest"
+                   :title "Newest task"
+                   :tags '("test")
+                   :started (format-time-string "[%Y-%m-%d %a %H:%M]" now))
+             (doing--file-today)))
+          ;; View recent
+          (doing-view-recent 3)
+          (should (get-buffer "*doing: recent (3)*"))
+          (with-current-buffer "*doing: recent (3)*"
+            ;; Verify all three tasks are present
+            (goto-char (point-min))
+            (should (search-forward "Newest task" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Middle task" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Oldest task" nil t)))
+          (kill-buffer "*doing: recent (3)*"))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-since-filters ()
+  "Test that `doing-view-since' filters entries correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create entries with specific dates
+          (let* ((today (format-time-string "%Y-%m-%d"))
+                 (yesterday (format-time-string "%Y-%m-%d"
+                              (time-subtract (current-time) (days-to-time 1))))
+                 (two-days-ago (format-time-string "%Y-%m-%d"
+                                 (time-subtract (current-time) (days-to-time 2)))))
+            (doing--append-entry-to-file
+             (list :id "old"
+                   :title "Old task"
+                   :tags '("test")
+                   :started (format "[%s Thu 10:00]" two-days-ago))
+             (doing--file-today))
+            (doing--append-entry-to-file
+             (list :id "recent"
+                   :title "Recent task"
+                   :tags '("test")
+                   :started (format "[%s Fri 10:00]" yesterday))
+             (doing--file-today))
+            (doing--append-entry-to-file
+             (list :id "today"
+                   :title "Today task"
+                   :tags '("test")
+                   :started (format "[%s Sat 10:00]" today))
+             (doing--file-today))
+            ;; View since yesterday
+            (doing-view-since yesterday)
+            (should (get-buffer (format "*doing: since %s*" yesterday)))
+            (with-current-buffer (format "*doing: since %s*" yesterday)
+              (let ((content (buffer-string)))
+                ;; Should include yesterday and today
+                (should (string-match-p "Recent task" content))
+                (should (string-match-p "Today task" content))
+                ;; Should NOT include two-days-ago
+                (should-not (string-match-p "Old task" content))))
+            (kill-buffer (format "*doing: since %s*" yesterday))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-since-empty ()
+  "Test that `doing-view-since' handles no matching entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; Create entry from yesterday
+          (let ((yesterday (format-time-string "%Y-%m-%d"
+                             (time-subtract (current-time) (days-to-time 1)))))
+            (doing--append-entry-to-file
+             (list :id "old"
+                   :title "Old task"
+                   :tags '("test")
+                   :started (format "[%s Thu 10:00]" yesterday))
+             (doing--file-today))
+            ;; View since tomorrow (should have no entries)
+            (let ((tomorrow (format-time-string "%Y-%m-%d"
+                              (time-add (current-time) (days-to-time 1)))))
+              (doing-view-since tomorrow)
+              (should (get-buffer (format "*doing: since %s*" tomorrow)))
+              (with-current-buffer (format "*doing: since %s*" tomorrow)
+                ;; Should show total 0:00
+                (goto-char (point-min))
+                (should (search-forward "Total:" nil t)))
+              (kill-buffer (format "*doing: since %s*" tomorrow)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-view-recent-and-since-are-interactive ()
+  "Test that view-recent and view-since are interactive."
+  (should (commandp 'doing-view-recent))
+  (should (commandp 'doing-view-since)))
+
 ;;; doing-test.el ends here

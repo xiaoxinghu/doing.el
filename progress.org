@@ -677,3 +677,45 @@
     - Tests verify buffer contents with =search-forward= which is robust to formatting variations
     - Must kill view buffers after tests to prevent interference: =(kill-buffer "*doing: NAME*")=
     - Empty entry lists display correctly with "Total: 0:00" thanks to =doing--sum-durations= handling empty lists
+
+* 2026-01-24 - View commands: recent and since
+- what was implemented
+  - Extended doing-view-commands.el with two additional view commands
+  - =doing-view-recent= — displays N most recent entries (default 10) sorted in reverse chronological order
+  - =doing-view-since= — displays entries since a specific date using org-read-date for interactive date input
+  - Both commands call =doing--ensure-rollover= before displaying to ensure files are up to date
+  - Commands use existing view infrastructure and follow the same pattern as other view commands
+  - Added 6 comprehensive tests covering all functionality
+  - All 91 tests pass successfully (85 from previous phases + 6 new tests)
+- files changed
+  - doing-view-commands.el — added =doing-view-recent= and =doing-view-since= functions with autoload cookies
+  - tests/doing-test.el — added Phase 19 with 6 new tests:
+    - doing-test-view-recent-limits — tests limiting to N entries and verifies correct entries are shown
+    - doing-test-view-recent-default — tests default behavior (10 entries max)
+    - doing-test-view-recent-sorting — tests reverse chronological sorting order
+    - doing-test-view-since-filters — tests date filtering with boundary cases (includes entries on exact date)
+    - doing-test-view-since-empty — tests handling of no matching entries
+    - doing-test-view-recent-and-since-are-interactive — verifies both commands are interactive
+- learnings
+  - patterns discovered
+    - =seq-sort-by= with =string>= predicate sorts entries by timestamp in reverse chronological order (newest first)
+    - =seq-take= extracts first N elements from a sorted sequence, perfect for limiting results
+    - Interactive parameter "P" allows optional prefix argument that defaults to 10 if not provided
+    - =(if (numberp n) n (or n 10))= pattern handles both prefix arg and default value correctly
+    - =org-read-date= provides consistent date input UI with calendar picker integration
+    - Date filtering uses =doing--timestamp-date= to extract date portion before comparison
+    - =not (string-lessp A B)= implements "greater than or equal" comparison for dates (A >= B)
+    - Buffer names include context in parentheses for recent view: ="*doing: recent (3)*"= shows actual count
+    - Tests use =time-subtract= with =seconds-to-time= to create entries with specific timestamps for sorting validation
+    - Tests verify both presence of expected entries and absence of filtered-out entries
+  - gotchas encountered
+    - COMPATIBILITY: =string>== function doesn't exist in Emacs 27.1, must use =not (string-lessp ...)= instead
+    - Initial compilation error led to discovery that string>= is not available in minimum supported version
+    - Fix: replaced =string>=...= with =not (string-lessp ...)= which is semantically equivalent
+    - Interactive "P" passes raw prefix arg, need to check =(numberp n)= before using it
+    - =seq-take= safely handles cases where N is larger than list length (returns all available entries)
+    - Buffer names must match exactly in tests when checking/killing buffers
+    - Date comparison must use extracted date strings (YYYY-MM-DD) not full timestamps
+    - =(days-to-time 1)= returns time value for 1 day, used with =time-subtract= to compute yesterday
+    - Tests create entries with explicit timestamps to ensure predictable sorting behavior
+    - Buffer cleanup in tests prevents "Buffer still has clients" warnings from =pop-to-buffer=

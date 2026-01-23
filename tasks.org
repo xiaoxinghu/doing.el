@@ -831,7 +831,15 @@ Standard view commands.
 - =doing-test-view-today-shows-entries=
 - =doing-test-view-week-groups-by-date=
 
-** TODO =doing-view-recent= and =doing-view-since=
+** DONE =doing-view-recent= and =doing-view-since=
+:PROPERTIES:
+:ID:       655F91CC-A788-4820-BB0F-6908E9206D41
+:CLAUDE_TIME_MS: 220761
+:CLAUDE_COST: 1.2144657499999996
+:CLAUDE_INPUT_TOKENS: 78
+:CLAUDE_OUTPUT_TOKENS: 10098
+:CLAUDE_SESSION_ID: e80e09be-5071-4d00-9976-177bcd91f786
+:END:
 
 Recent and date-range views.
 

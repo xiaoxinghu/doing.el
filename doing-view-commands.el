@@ -13,6 +13,7 @@
 (require 'doing-view)
 (require 'doing-rollover)
 (require 'seq)
+(require 'subr-x)
 
 ;;; Standard View Commands
 
@@ -48,6 +49,35 @@
                          (doing--parse-file (doing--file-week)))))
     (doing--view-buffer "this week" entries
                         (lambda (e) (doing--timestamp-date (plist-get e :started))))))
+
+;;;###autoload
+(defun doing-view-recent (&optional n)
+  "Display N most recent entries (default 10).
+With prefix argument, prompt for N."
+  (interactive "P")
+  (doing--ensure-rollover)
+  (let* ((n (if (numberp n) n (or n 10)))
+         (entries (append (doing--parse-file (doing--file-today))
+                          (doing--parse-file (doing--file-week))))
+         (sorted (seq-sort-by (lambda (e) (plist-get e :started))
+                              #'string> entries))
+         (recent (seq-take sorted n)))
+    (doing--view-buffer (format "recent (%d)" (length recent)) recent)))
+
+;;;###autoload
+(defun doing-view-since (date)
+  "Display entries since DATE.
+DATE is prompted using org-read-date."
+  (interactive (list (org-read-date nil nil nil "Since: ")))
+  (doing--ensure-rollover)
+  (let* ((all-entries (append (doing--parse-file (doing--file-today))
+                              (doing--parse-file (doing--file-week))))
+         (filtered (seq-filter
+                    (lambda (e)
+                      (not (string-lessp (doing--timestamp-date (plist-get e :started))
+                                         date)))
+                    all-entries)))
+    (doing--view-buffer (format "since %s" date) filtered)))
 
 (provide 'doing-view-commands)
 
