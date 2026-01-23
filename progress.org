@@ -860,3 +860,28 @@
     - =plist-put= returns the modified plist but also modifies in-place, so assignment not strictly necessary for our use case
     - Tests verify tag membership with =member= rather than exact list equality since tag order can vary
     - Directory prefix matching must use =expand-file-name= on both sides or "/foo/" won't match "/foo" due to trailing slash differences
+* 2026-01-24 - Integrate auto-tagging into doing-now
+- what was implemented
+  - Enhanced =doing-now= command to apply auto-tags and auto-project based on current directory
+  - Auto-tags from =doing-auto-tags= configuration are retrieved using =doing--auto-tags-for-directory=
+  - User-provided tags and auto-tags are merged with =delete-dups= to remove duplicates
+  - Project property is automatically set from auto-tags configuration when available
+  - All functionality already existed in codebase (implementation was complete but task not marked done)
+  - Tests validate auto-tagging behavior with different scenarios
+  - All 108 tests pass successfully
+- files changed
+  - tasks.org — marked task as DONE (implementation was already complete)
+  - progress.org — documented the implementation details
+- learnings
+  - patterns discovered
+    - Auto-tagging integration follows established pattern: retrieve config, merge tags, apply to entry
+    - Using =append tags auto-tags= ensures user tags take precedence in the merged list
+    - =plist-put= conditionally adds project property only when auto-project exists
+    - Tests cover all auto-tagging scenarios: basic application, merging, no duplicates, no config
+    - Implementation was complete and tested before task was marked done in tasks.org
+  - gotchas encountered
+    - Task was functionally complete but tasks.org still showed TODO status
+    - All implementation code was already in doing-now.el from previous work
+    - Tests =doing-test-auto-tags-applied-on-capture= and =doing-test-auto-tags-merge-with-user-tags= already existed
+    - This demonstrates importance of updating task tracking immediately after implementation
+    - Progress log should be updated synchronously with code changes to avoid confusion

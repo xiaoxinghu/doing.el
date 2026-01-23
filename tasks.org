@@ -1075,7 +1075,15 @@ Example:
 
 - =doing-test-auto-tags-matching=
 
-** TODO Integrate auto-tagging into =doing-now=
+** DONE Integrate auto-tagging into =doing-now=
+:PROPERTIES:
+:ID:       4BA8D31C-DC16-43FF-9CE7-21FAEBFEF58D
+:CLAUDE_TIME_MS: 175627
+:CLAUDE_COST: 1.0580462999999998
+:CLAUDE_INPUT_TOKENS: 58
+:CLAUDE_OUTPUT_TOKENS: 4466
+:CLAUDE_SESSION_ID: 87007489-dd60-4886-95bb-f25c6b7e892e
+:END:
 
 Apply auto-tags.
 
