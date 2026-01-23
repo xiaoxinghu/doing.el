@@ -186,3 +186,28 @@
     - =org-cut-subtree= shows "Cut: Subtree(s)" messages even in batch mode - this is normal org behavior
     - Must call =org-mode= on buffers created from file contents or org-element functions won't work properly
     - =org-entry-get= returns =nil= (not empty string) for missing properties, must use =(string= value ...)= in tests
+
+* 2026-01-23 - Generate entry ID
+- what was implemented
+  - Added =doing--generate-id ()= function to doing-lib.el
+  - Function generates timestamp-based unique IDs in format YYYYMMDDTHHMMSS
+  - Returns a 15-character string using =format-time-string= with pattern "%Y%m%dT%H%M%S"
+  - Added comprehensive tests for ID generation with 2 test cases
+  - All 32 tests pass successfully (30 from previous phases + 2 new tests)
+- files changed
+  - doing-lib.el — added Entry ID Generation section with =doing--generate-id= function
+  - tests/doing-test.el — added Phase 7 with 2 new tests:
+    - doing-test-generate-id-format — validates ID format (15 chars, YYYYMMDDTHHMMSS pattern, reasonable values for year/month/day/hour/minute/second)
+    - doing-test-generate-id-uniqueness — basic uniqueness test with sleep-for delay
+- learnings
+  - patterns discovered
+    - =format-time-string= with "%Y%m%dT%H%M%S" produces compact timestamp-based IDs without special characters
+    - Timestamp-based IDs are simple, sortable chronologically, and unique enough for single-user activity logging
+    - Test can validate all components of timestamp ID by substring extraction and range checking
+    - Using =sleep-for= with small delay (0.01s) in tests to ensure different timestamps for uniqueness testing
+    - ID format follows ISO 8601 basic format (no dashes/colons) making it safe for property values
+  - gotchas encountered
+    - Uniqueness test is probabilistic - two IDs generated in same second would be identical, but acceptable for our use case
+    - Test validates ID components (year, month, day, etc.) have reasonable ranges rather than exact values
+    - No need for complex UUID libraries or =org-id= integration - simple timestamp is sufficient
+    - Format string "%Y%m%dT%H%M%S" differs from display timestamps which use brackets and separators

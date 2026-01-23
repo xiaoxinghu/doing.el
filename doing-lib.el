@@ -104,6 +104,13 @@ Uses ISO 8601 week date system."
 Format matches archive file naming: 2026-W04"
   (format-time-string "%G-W%V" (or time (current-time))))
 
+;;; Entry ID Generation
+
+(defun doing--generate-id ()
+  "Generate unique ID for entry.
+Returns a timestamp-based ID in format: YYYYMMDDTHHMMSS"
+  (format-time-string "%Y%m%dT%H%M%S"))
+
 ;;; Entry Parsing Utilities
 
 (defun doing--parse-entry-at-point ()

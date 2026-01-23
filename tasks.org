@@ -315,7 +315,15 @@ Use =org-entry-put= and =org-entry-get= for modifications. *Do not use regex.*
 
 The essential commands for logging activities.
 
-** TODO Generate entry ID
+** DONE Generate entry ID
+:PROPERTIES:
+:ID:       7E175ACC-807C-4360-BEB7-0F78C9E5B41B
+:CLAUDE_TIME_MS: 124273
+:CLAUDE_COST: 0.7101591999999999
+:CLAUDE_INPUT_TOKENS: 70
+:CLAUDE_OUTPUT_TOKENS: 4405
+:CLAUDE_SESSION_ID: ac75f949-82d8-4568-b036-a7ff6e154189
+:END:
 
 Simple timestamp-based ID generation.
 
