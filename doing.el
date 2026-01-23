@@ -38,6 +38,7 @@
 (require 'doing-cancel)
 (require 'doing-note)
 (require 'doing-again)
+(require 'doing-rollover)
 
 ;;; Customization
 

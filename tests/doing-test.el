@@ -15,6 +15,7 @@
 (require 'doing-cancel)
 (require 'doing-note)
 (require 'doing-again)
+(require 'doing-rollover)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -1504,5 +1505,172 @@
 (ert-deftest doing-test-again-is-interactive ()
   "Test that `doing-again' is an interactive command."
   (should (commandp 'doing-again)))
+
+;;; Phase 14: Daily Rollover
+
+(ert-deftest doing-test-rollover-daily-moves-old ()
+  "Test that daily rollover moves old entries to week.org."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let ((today-file (doing--file-today))
+                (week-file (doing--file-week)))
+            ;; Create entries with different dates
+            ;; Old entry from yesterday
+            (let ((yesterday (format-time-string
+                             "%Y-%m-%d"
+                             (time-subtract (current-time) (days-to-time 1)))))
+              (doing--append-entry-to-file
+               (list :id "old-id"
+                     :title "Old entry"
+                     :started (format "[%s Thu 10:00]" yesterday)
+                     :tags '("old"))
+               today-file))
+            ;; Entry from today
+            (let ((today (format-time-string "%Y-%m-%d")))
+              (doing--append-entry-to-file
+               (list :id "new-id"
+                     :title "New entry"
+                     :started (format "[%s Fri 14:00]" today)
+                     :tags '("new"))
+               today-file))
+            ;; Kill buffers to ensure fresh reads
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Run rollover
+            (let ((moved-count (doing--rollover-daily)))
+              ;; Should have moved 1 entry
+              (should (= moved-count 1)))
+            ;; Kill buffers again
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Verify today.org only has today's entry
+            (let ((today-entries (doing--parse-file today-file)))
+              (should (= 1 (length today-entries)))
+              (should (string= "new-id" (plist-get (car today-entries) :id))))
+            ;; Verify week.org has the old entry
+            (let ((week-entries (doing--parse-file week-file)))
+              (should (= 1 (length week-entries)))
+              (should (string= "old-id" (plist-get (car week-entries) :id))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-daily-keeps-today ()
+  "Test that daily rollover preserves today's entries."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let ((today-file (doing--file-today))
+                (today (format-time-string "%Y-%m-%d")))
+            ;; Create multiple entries from today
+            (doing--append-entry-to-file
+             (list :id "entry1"
+                   :title "Entry 1"
+                   :started (format "[%s Fri 10:00]" today)
+                   :tags '("work"))
+             today-file)
+            (doing--append-entry-to-file
+             (list :id "entry2"
+                   :title "Entry 2"
+                   :started (format "[%s Fri 11:00]" today)
+                   :tags '("work"))
+             today-file)
+            (doing--append-entry-to-file
+             (list :id "entry3"
+                   :title "Entry 3"
+                   :started (format "[%s Fri 12:00]" today)
+                   :tags '("work"))
+             today-file)
+            ;; Kill buffer
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            ;; Run rollover
+            (let ((moved-count (doing--rollover-daily)))
+              ;; Should not move any entries
+              (should (null moved-count)))
+            ;; Kill buffer again
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            ;; Verify all entries still in today.org
+            (let ((today-entries (doing--parse-file today-file)))
+              (should (= 3 (length today-entries)))
+              (should (member "entry1" (mapcar (lambda (e) (plist-get e :id)) today-entries)))
+              (should (member "entry2" (mapcar (lambda (e) (plist-get e :id)) today-entries)))
+              (should (member "entry3" (mapcar (lambda (e) (plist-get e :id)) today-entries))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-daily-no-entries ()
+  "Test that daily rollover handles empty today.org gracefully."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          ;; today.org doesn't exist yet or is empty
+          (let ((moved-count (doing--rollover-daily)))
+            ;; Should return nil (no entries to move)
+            (should (null moved-count))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-rollover-daily-preserves-properties ()
+  "Test that daily rollover preserves all entry properties."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing--ensure-directory)
+          (let ((today-file (doing--file-today))
+                (week-file (doing--file-week))
+                (yesterday (format-time-string
+                           "%Y-%m-%d"
+                           (time-subtract (current-time) (days-to-time 1)))))
+            ;; Create entry with all properties
+            (doing--append-entry-to-file
+             (list :id "complete-id"
+                   :title "Complete entry"
+                   :started (format "[%s Thu 10:00]" yesterday)
+                   :ended (format "[%s Thu 11:30]" yesterday)
+                   :tags '("work" "project")
+                   :project "doing-el")
+             today-file)
+            ;; Kill buffers
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Run rollover
+            (doing--rollover-daily)
+            ;; Kill buffers
+            (when-let ((buf (get-file-buffer today-file)))
+              (kill-buffer buf))
+            (when-let ((buf (get-file-buffer week-file)))
+              (kill-buffer buf))
+            ;; Verify entry in week.org has all properties
+            (let* ((week-entries (doing--parse-file week-file))
+                   (entry (car week-entries)))
+              (should (= 1 (length week-entries)))
+              (should (string= "complete-id" (plist-get entry :id)))
+              (should (string= "Complete entry" (plist-get entry :title)))
+              ;; Use doing--timestamp-date to extract date from timestamp
+              (should (string= yesterday (doing--timestamp-date (plist-get entry :started))))
+              (should (string= yesterday (doing--timestamp-date (plist-get entry :ended))))
+              (should (equal '("work" "project") (plist-get entry :tags)))
+              (should (string= "doing-el" (plist-get entry :project))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
 
 ;;; doing-test.el ends here

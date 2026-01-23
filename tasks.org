@@ -589,7 +589,15 @@ Resume last finished activity.
 
 Automatic migration of entries between files.
 
-** TODO Daily rollover — today to week
+** DONE Daily rollover — today to week
+:PROPERTIES:
+:ID:       42E74054-5B6F-4A96-ACDB-6B32544B6A92
+:CLAUDE_TIME_MS: 183601
+:CLAUDE_COST: 0.9762961499999998
+:CLAUDE_INPUT_TOKENS: 69
+:CLAUDE_OUTPUT_TOKENS: 7156
+:CLAUDE_SESSION_ID: 4d1dbf8f-4b61-4b7e-a1af-0ed01dad751b
+:END:
 
 Move old entries from =today.org= to =week.org=.
 

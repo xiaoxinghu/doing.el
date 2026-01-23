@@ -478,3 +478,39 @@
     - Solution: kill file buffers before operations that need fresh data with =when-let ((buf (get-file-buffer path))) (kill-buffer buf)=
     - =find-file-noselect= can trigger interactive "File changed on disk" prompts in batch mode tests
     - Using =cl-letf= to override =yes-or-no-p= with =(lambda (_) t)= suppresses these prompts automatically
+
+* 2026-01-24 - Daily rollover — today to week
+- what was implemented
+  - Created doing-rollover.el with =doing--rollover-daily= function for automatic entry migration
+  - Function moves entries from today.org to week.org when they're from previous days
+  - Uses date comparison via =doing--timestamp-date= to identify old entries
+  - Preserves all entry properties (id, title, tags, started, ended, project) during migration
+  - Returns count of moved entries for visibility, nil if nothing moved
+  - Added comprehensive tests covering all rollover scenarios
+  - All 67 tests pass successfully (63 from previous phases + 4 new tests)
+- files changed
+  - doing-rollover.el — new feature file with daily rollover functionality
+  - doing.el — added =(require 'doing-rollover)= to load the new module
+  - tests/doing-test.el — added =(require 'doing-rollover)= and Phase 14 with 4 new tests:
+    - doing-test-rollover-daily-moves-old — validates old entries moved to week.org
+    - doing-test-rollover-daily-keeps-today — verifies today's entries remain in today.org
+    - doing-test-rollover-daily-no-entries — tests graceful handling of empty file
+    - doing-test-rollover-daily-preserves-properties — ensures all entry properties survive migration
+- learnings
+  - patterns discovered
+    - Rollover is implemented as a pure function that filters, copies, then deletes
+    - Using =seq-filter= with predicate to separate old vs new entries based on date
+    - =doing--timestamp-date= extracts YYYY-MM-DD for date comparison with =string-prefix-p=
+    - Three-step process: parse entries, append to destination, delete from source
+    - Returning count of moved entries provides useful feedback for callers
+    - Buffer killing pattern (=kill-buffer (get-file-buffer path)=) is essential in tests to force fresh disk reads
+    - Tests use =format-time-string= with =time-subtract= and =days-to-time= to generate yesterday's date dynamically
+    - All entry properties (tags, project, ended, etc.) automatically preserved by =doing--append-entry-to-file=
+  - gotchas encountered
+    - Initial test failure: comparing full timestamp =[2026-01-23 Thu 10:00]= with date string ="2026-01-23"= using =string-prefix-p= failed
+    - Solution: use =doing--timestamp-date= to extract date portion before comparison
+    - Must kill buffers before and after rollover in tests to ensure file system state is accurate
+    - =doing--delete-entry= generates "Cut: Subtree(s)" messages in test output which is expected org behavior
+    - Week.org file created automatically by =doing--ensure-file= when first entry appended
+    - Rollover returns nil (not 0) when no entries need moving - important for conditional logic
+    - Date filtering uses =not (string-prefix-p today ...)= to identify old entries, cleaner than >= comparison
