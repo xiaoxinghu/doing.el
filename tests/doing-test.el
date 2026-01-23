@@ -9,6 +9,7 @@
 (require 'ert)
 (require 'doing)
 (require 'doing-lib)
+(require 'doing-now)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -804,5 +805,71 @@
       ;; are unique enough for our purposes
       (should (stringp id1))
       (should (stringp id2)))))
+
+;;; Phase 8: doing-now command tests
+
+(ert-deftest doing-test-now-creates-entry ()
+  "Test that `doing-now' creates an entry in today.org."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Call doing-now non-interactively
+          (doing-now "Write tests" '("emacs" "testing"))
+          ;; Verify file was created
+          (let ((today-file (doing--file-today)))
+            (should (file-exists-p today-file))
+            ;; Verify entry exists
+            (let ((entries (doing--parse-file today-file)))
+              (should (= (length entries) 1))
+              (let ((entry (car entries)))
+                ;; Check title
+                (should (string= (plist-get entry :title) "Write tests"))
+                ;; Check tags
+                (should (equal (plist-get entry :tags) '("emacs" "testing")))
+                ;; Check ID exists and has correct format
+                (let ((id (plist-get entry :id)))
+                  (should (stringp id))
+                  (should (string-match-p "^[0-9]\\{8\\}T[0-9]\\{6\\}$" id)))
+                ;; Check STARTED exists and has correct format
+                (let ((started (plist-get entry :started)))
+                  (should (stringp started))
+                  (should (string-match-p "^\\[20[0-9][0-9]-[0-1][0-9]-[0-3][0-9]" started)))
+                ;; Entry should not be finished
+                (should (null (plist-get entry :ended))))))
+          ;; Test adding a second entry
+          (doing-now "Second activity" '("work"))
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 2))
+            (let ((entry2 (nth 1 entries)))
+              (should (string= (plist-get entry2 :title) "Second activity"))
+              (should (equal (plist-get entry2 :tags) '("work"))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-now-without-tags ()
+  "Test that `doing-now' works without tags."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Call doing-now without tags
+          (doing-now "Simple activity")
+          ;; Verify entry
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 1))
+            (let ((entry (car entries)))
+              (should (string= (plist-get entry :title) "Simple activity"))
+              ;; Tags should be nil
+              (should (null (plist-get entry :tags))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-now-is-interactive ()
+  "Test that `doing-now' is an interactive command."
+  ;; Check that the function is marked as interactive
+  (should (commandp 'doing-now)))
 
 ;;; doing-test.el ends here

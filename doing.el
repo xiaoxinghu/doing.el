@@ -32,6 +32,7 @@
 
 (require 'org)
 (require 'doing-lib)
+(require 'doing-now)
 
 ;;; Customization
 

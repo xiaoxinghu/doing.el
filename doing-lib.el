@@ -11,6 +11,13 @@
 ;;; Code:
 
 (require 'org)
+(require 'org-element)
+
+;; Forward declarations for variables defined in doing.el
+(defvar doing-directory)
+(defvar doing--file-today-name)
+(defvar doing--file-week-name)
+(defvar doing--archive-directory-name)
 
 ;;; File and Directory Utilities
 

@@ -211,3 +211,41 @@
     - Test validates ID components (year, month, day, etc.) have reasonable ranges rather than exact values
     - No need for complex UUID libraries or =org-id= integration - simple timestamp is sufficient
     - Format string "%Y%m%dT%H%M%S" differs from display timestamps which use brackets and separators
+
+* 2026-01-23 - doing-now — basic capture
+- what was implemented
+  - Created doing-now.el with the =doing-now= command for starting new activities
+  - =doing-now= function takes a title and optional tags, creates entry in today.org
+  - Entry includes auto-generated ID, title, tags (if provided), and STARTED timestamp
+  - Command is interactive, prompting user for "What are you doing?"
+  - Message confirms when activity is started
+  - Added 3 comprehensive tests for doing-now functionality
+  - All 35 tests pass successfully (32 from previous phases + 3 new tests)
+  - Package compiles cleanly without warnings after adding forward declarations
+- files changed
+  - doing-now.el — new feature file with =doing-now= command (follows project structure guidelines)
+  - doing.el — added =(require 'doing-now)= to load the new module
+  - doing-lib.el — added forward declarations for variables from doing.el, added =(require 'org-element)=
+  - tests/doing-test.el — added Phase 8 with 3 new tests:
+    - doing-test-now-creates-entry — tests entry creation, multiple entries, ID/timestamp format validation
+    - doing-test-now-without-tags — tests that command works without tags argument
+    - doing-test-now-is-interactive — verifies command has interactive declaration
+- learnings
+  - patterns discovered
+    - Following CLAUDE.md guidelines for file organization: feature files named =doing-<feature>.el=
+    - =doing-now.el= contains only the capture-related functionality, keeping code modular
+    - Using =;;;###autoload= cookie on user-facing commands for proper autoloading
+    - Interactive prompt string "sWhat are you doing? " where "s" means string input
+    - =doing--ensure-directory= is called before file operations to guarantee directory exists
+    - =doing--append-entry-to-file= handles both file creation and appending in one call
+    - Forward declarations with =defvar= allow library files to reference variables from main package
+    - =(require 'org-element)= needed in doing-lib.el to avoid compilation warnings about org-element functions
+    - Test structure validates all entry components: title, tags, ID format, timestamp format, finished status
+    - =(commandp 'doing-now)= is the proper way to test if function is interactive
+  - gotchas encountered
+    - Initial compilation showed warnings about free variables - resolved with forward declarations
+    - Compilation warnings also appeared for org-element functions - resolved by adding =(require 'org-element)=
+    - Must use =defvar= not =defcustom= in forward declarations or it creates duplicate definitions
+    - Tests must use temporary directories to avoid interfering with user's actual doing directory
+    - =doing-now= message output appears in test results ("Started: Write tests") which is expected behavior
+    - File compilation order matters: doing.el must be compiled before doing-now.el since it defines the variables
