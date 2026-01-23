@@ -3108,4 +3108,30 @@
   (should (commandp 'doing-edit))
   (should (commandp 'doing-open)))
 
+;;; Phase 24: Keymap setup
+
+(ert-deftest doing-test-keymap-exists ()
+  "Test that `doing-command-map' is defined as a keymap."
+  (should (boundp 'doing-command-map))
+  (should (keymapp doing-command-map)))
+
+(ert-deftest doing-test-keymap-bindings ()
+  "Test that all expected commands are bound in `doing-command-map'."
+  (should (eq (lookup-key doing-command-map "n") 'doing-now))
+  (should (eq (lookup-key doing-command-map "f") 'doing-finish))
+  (should (eq (lookup-key doing-command-map "c") 'doing-current))
+  (should (eq (lookup-key doing-command-map "a") 'doing-again))
+  (should (eq (lookup-key doing-command-map "t") 'doing-view-today))
+  (should (eq (lookup-key doing-command-map "w") 'doing-view-week))
+  (should (eq (lookup-key doing-command-map "T") 'doing-totals))
+  (should (eq (lookup-key doing-command-map "s") 'doing-search))
+  (should (eq (lookup-key doing-command-map "e") 'doing-edit))
+  (should (eq (lookup-key doing-command-map "o") 'doing-open)))
+
+(ert-deftest doing-test-keymap-has-docstring ()
+  "Test that `doing-command-map' has a descriptive docstring."
+  (should (documentation-property 'doing-command-map 'variable-documentation))
+  (should (string-match-p "Suggested binding"
+                          (documentation-property 'doing-command-map 'variable-documentation))))
+
 ;;; doing-test.el ends here

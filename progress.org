@@ -938,3 +938,35 @@
     - Interactive command testing uses =commandp= predicate rather than checking for interactive-form directly
     - Message testing requires capturing from *Messages* buffer before and after command execution
     - String pattern matching for asterisk requires escaping: ="\\*"= in =string-match-p=
+* 2026-01-24 - Keybinding setup
+- what was implemented
+  - Added doing-command-map keymap to doing.el with bindings for all major commands
+  - Keymap includes bindings for: doing-now (n), doing-finish (f), doing-current (c), doing-again (a), doing-view-today (t), doing-view-week (w), doing-totals (T), doing-search (s), doing-edit (e), doing-open (o)
+  - Keymap provides suggested global binding: (global-set-key (kbd "C-c d") doing-command-map)
+  - Added comprehensive tests for keymap existence, bindings, and docstring
+  - All 118 tests pass successfully (115 from previous phases + 3 new tests)
+- files changed
+  - doing.el — added doing-command-map defvar with keybindings and docstring
+  - tests/doing-test.el — added Phase 24 with 3 new tests:
+    - doing-test-keymap-exists — verifies keymap is defined and is a valid keymap
+    - doing-test-keymap-bindings — tests all 10 key bindings point to correct commands
+    - doing-test-keymap-has-docstring — verifies docstring exists and mentions suggested binding
+- learnings
+  - patterns discovered
+    - Using make-sparse-keymap to create a new keymap without inheriting global bindings
+    - define-key with function symbols (quoted with #') is the standard pattern for keymap bindings
+    - Keymap variable uses defvar not defcustom since users bind it globally, they don't customize the map itself
+    - Docstring in defvar should explain purpose and provide usage example (suggested binding)
+    - lookup-key retrieves command bound to a key sequence in a keymap
+    - keymapp predicate tests if a value is a valid keymap object
+    - documentation-property retrieves docstring from symbol property for testing
+    - Single-character key bindings use strings: "n", "f", "T" (uppercase T for doing-totals)
+    - Tests verify both structural properties (is it a keymap?) and functional properties (correct bindings?)
+  - gotchas encountered
+    - Must use boundp to check variable existence before keymapp in tests to avoid errors
+    - lookup-key returns the command symbol, not the function object, so use eq for comparison
+    - documentation-property requires 'variable-documentation as second argument for defvar docstrings
+    - Keymap section placed after Internal Configuration but before (provide 'doing) for logical grouping
+    - No autoload cookie needed for keymap variable since it's loaded with the main package
+    - Users must explicitly bind the keymap globally in their config; package doesn't force a global binding
+    - Case sensitivity matters: "T" binds doing-totals, "t" binds doing-view-today (different commands)

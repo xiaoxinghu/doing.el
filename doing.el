@@ -93,6 +93,24 @@ Example:
 (defconst doing--archive-directory-name "archive"
   "Name of the directory for archived weekly files.")
 
+;;; Keymap
+
+(defvar doing-command-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "n" #'doing-now)
+    (define-key map "f" #'doing-finish)
+    (define-key map "c" #'doing-current)
+    (define-key map "a" #'doing-again)
+    (define-key map "t" #'doing-view-today)
+    (define-key map "w" #'doing-view-week)
+    (define-key map "T" #'doing-totals)
+    (define-key map "s" #'doing-search)
+    (define-key map "e" #'doing-edit)
+    (define-key map "o" #'doing-open)
+    map)
+  "Keymap for doing commands.
+Suggested binding: (global-set-key (kbd \"C-c d\") doing-command-map)")
+
 (provide 'doing)
 
 ;;; doing.el ends here

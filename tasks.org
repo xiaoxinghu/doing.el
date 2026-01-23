@@ -1172,9 +1172,14 @@ Utility commands.
 - =doing-test-last-shows-entry=
 - =doing-test-edit-opens-file=
 
-** TODO Keybinding setup
+** DONE Keybinding setup
 :PROPERTIES:
 :ID:       68608895-3CB3-4FE0-88C7-4728A0C95445
+:CLAUDE_TIME_MS: 206519
+:CLAUDE_COST: 0.9290635499999997
+:CLAUDE_INPUT_TOKENS: 76
+:CLAUDE_OUTPUT_TOKENS: 5924
+:CLAUDE_SESSION_ID: 34d3bc40-d132-4ec4-858c-175087559fe9
 :END:
 
 Provide prefix keymap.
