@@ -1,0 +1,20 @@
+#+title: doing.el Development Progress
+
+* 2026-01-23 - Package skeleton and configuration
+- what was implemented
+  - Main package file (doing.el) with proper headers
+  - Package metadata: author, version, dependencies (emacs 27.1, org 9.0)
+  - Customization group =doing= under =org= group
+  - User-facing customization: =doing-directory= (default ~/org/doing/)
+  - Internal configuration constants for file names (today.org, week.org, archive/)
+- files changed
+  - doing.el — complete rewrite with proper package structure
+  - tests/doing-test.el — new tests for customization group and config
+- learnings
+  - patterns discovered
+    - Use =defconst= for internal configuration that shouldn't change
+    - Keep internal config separate from user customization (=defcustom= vs =defconst=)
+    - Testing for customization group via =(get 'symbol 'custom-group)=
+  - gotchas encountered
+    - Need to use =expand-file-name= in default value for =doing-directory= to ensure absolute path
+    - Package-Requires uses parenthesized list format: =((emacs "27.1") (org "9.0"))=

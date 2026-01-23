@@ -116,7 +116,7 @@ If =org-ql= is available, use it for advanced querying instead of custom code.
 
 Infrastructure-level code that all other features depend on.
 
-** TODO Package skeleton and configuration
+** DONE Package skeleton and configuration
 
 Set up the main package file with proper headers and customization group.
 
