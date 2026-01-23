@@ -33,6 +33,7 @@
 (require 'org)
 (require 'doing-lib)
 (require 'doing-now)
+(require 'doing-current)
 
 ;;; Customization
 

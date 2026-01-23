@@ -374,7 +374,15 @@ Start a new activity.
 - =doing-test-now-creates-entry=
 - =doing-test-now-is-interactive=
 
-** TODO =doing-current= — show current activity
+** DONE =doing-current= — show current activity
+:PROPERTIES:
+:ID:       D8F1B991-DE20-4BB6-B68F-751B4872C33D
+:CLAUDE_TIME_MS: 143933
+:CLAUDE_COST: 0.8667437000000004
+:CLAUDE_INPUT_TOKENS: 60
+:CLAUDE_OUTPUT_TOKENS: 5651
+:CLAUDE_SESSION_ID: 12b391c9-ca59-42ec-a4e1-57e8e7832524
+:END:
 
 Display unfinished activity.
 

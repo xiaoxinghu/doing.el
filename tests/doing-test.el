@@ -10,6 +10,7 @@
 (require 'doing)
 (require 'doing-lib)
 (require 'doing-now)
+(require 'doing-current)
 
 ;;; Phase 1: Package skeleton and configuration tests
 
@@ -871,5 +872,110 @@
   "Test that `doing-now' is an interactive command."
   ;; Check that the function is marked as interactive
   (should (commandp 'doing-now)))
+
+;;; Phase 9: doing-current command tests
+
+(ert-deftest doing-test-current-shows-active ()
+  "Test that `doing-current' displays the current unfinished activity."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create an entry
+          (doing-now "Writing tests" '("emacs" "testing"))
+          ;; Capture the message output
+          (let ((message-log-max t)
+                (messages-buffer (get-buffer-create "*Messages*")))
+            (with-current-buffer messages-buffer
+              (let ((start-pos (point-max)))
+                ;; Call doing-current
+                (doing-current)
+                ;; Check the message output
+                (with-current-buffer messages-buffer
+                  (goto-char start-pos)
+                  (let ((output (buffer-substring start-pos (point-max))))
+                    ;; Should contain the title
+                    (should (string-match-p "Writing tests" output))
+                    ;; Should contain elapsed time in brackets
+                    (should (string-match-p "\\[[0-9]" output)))))))
+          ;; Test with multiple entries (should show the most recent unfinished)
+          (doing-now "Second activity" '("work"))
+          (let ((message-log-max t)
+                (messages-buffer (get-buffer-create "*Messages*")))
+            (with-current-buffer messages-buffer
+              (let ((start-pos (point-max)))
+                (doing-current)
+                (with-current-buffer messages-buffer
+                  (goto-char start-pos)
+                  (let ((output (buffer-substring start-pos (point-max))))
+                    ;; Should show the second activity
+                    (should (string-match-p "Second activity" output))))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-current-when-nothing-active ()
+  "Test that `doing-current' handles no active entries correctly."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Ensure directory exists but file is empty
+          (doing--ensure-directory)
+          (let ((message-log-max t)
+                (messages-buffer (get-buffer-create "*Messages*")))
+            (with-current-buffer messages-buffer
+              (let ((start-pos (point-max)))
+                ;; Call doing-current with no entries
+                (doing-current)
+                ;; Check the message output
+                (with-current-buffer messages-buffer
+                  (goto-char start-pos)
+                  (let ((output (buffer-substring start-pos (point-max))))
+                    ;; Should say "No activity in progress"
+                    (should (string-match-p "No activity in progress" output))))))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-current-entry-helper ()
+  "Test that `doing--current-entry' returns correct entry."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Test with no entries
+          (doing--ensure-directory)
+          (should (null (doing--current-entry)))
+          ;; Create an unfinished entry
+          (doing-now "Active task" '("test"))
+          (let ((entry (doing--current-entry)))
+            (should entry)
+            (should (string= (plist-get entry :title) "Active task"))
+            (should (equal (plist-get entry :tags) '("test")))
+            (should (null (plist-get entry :ended))))
+          ;; Add a finished entry by manually creating one
+          (let ((finished-entry (list :id (doing--generate-id)
+                                      :title "Finished task"
+                                      :started (doing--timestamp-now)
+                                      :ended (doing--timestamp-now))))
+            (doing--append-entry-to-file finished-entry (doing--file-today)))
+          ;; Current should still be "Active task", not "Finished task"
+          (let ((entry (doing--current-entry)))
+            (should entry)
+            (should (string= (plist-get entry :title) "Active task")))
+          ;; Add another unfinished entry
+          (doing-now "Most recent task")
+          ;; Current should be the most recent unfinished one
+          (let ((entry (doing--current-entry)))
+            (should entry)
+            (should (string= (plist-get entry :title) "Most recent task"))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-current-is-interactive ()
+  "Test that `doing-current' is an interactive command."
+  (should (commandp 'doing-current)))
 
 ;;; doing-test.el ends here

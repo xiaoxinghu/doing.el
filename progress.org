@@ -249,3 +249,38 @@
     - Tests must use temporary directories to avoid interfering with user's actual doing directory
     - =doing-now= message output appears in test results ("Started: Write tests") which is expected behavior
     - File compilation order matters: doing.el must be compiled before doing-now.el since it defines the variables
+
+* 2026-01-23 - doing-current — show current activity
+- what was implemented
+  - Created doing-current.el with the =doing-current= command for displaying current unfinished activity
+  - =doing--current-entry= helper function finds the most recent unfinished entry from today.org
+  - =doing-current= command displays current activity with elapsed time in minibuffer
+  - Command is interactive, showing elapsed time in format [H:MM] followed by activity title
+  - Handles case when no activity is in progress with appropriate message
+  - Added 4 comprehensive tests for doing-current functionality
+  - All 39 tests pass successfully (35 from previous phases + 4 new tests)
+  - Package compiles cleanly without warnings
+- files changed
+  - doing-current.el — new feature file with =doing-current= and =doing--current-entry= (follows project structure guidelines)
+  - doing.el — added =(require 'doing-current)= to load the new module
+  - tests/doing-test.el — added Phase 9 with 4 new tests:
+    - doing-test-current-shows-active — tests display of active entry with elapsed time, multiple entries
+    - doing-test-current-when-nothing-active — tests "No activity in progress" message
+    - doing-test-current-entry-helper — tests internal helper function behavior with various entry states
+    - doing-test-current-is-interactive — verifies command has interactive declaration
+- learnings
+  - patterns discovered
+    - Using =seq-find= with =reverse= to get most recent entry first is elegant and readable
+    - Testing message output requires capturing from *Messages* buffer with =point-max= positioning
+    - =if-let= provides clean conditional binding for nil-safe entry access
+    - Helper function =doing--current-entry= provides good separation between logic and presentation
+    - Computing elapsed time for current (unfinished) activity uses current time as end timestamp
+    - Multiple tests for same feature can validate different aspects: display, error handling, helper functions
+    - Following established pattern: feature file named =doing-current.el=, helper functions use =doing--= prefix
+  - gotchas encountered
+    - Message buffer testing is tricky - must get =point-max= before calling function and read after
+    - =if-let= requires entry to be non-nil; when nil, falls through to else clause correctly
+    - =doing--current-entry= intentionally returns nil when no unfinished entries exist, not an error
+    - =reverse= is necessary because =doing--parse-file= returns entries in file order (oldest first)
+    - Tests create finished entries by manually setting :ended property, simulating real workflow
+    - Message output appears in test results which is expected and not a problem
