@@ -6,5 +6,1109 @@ For new feature/task to be marked as =DONE=, make sure that:
 - new tests are added for guarding the new feature, and passing
   - design tests with purpose, only test things that tend to remain unchanged in a long term, e.g. the interface (interactive functions), and concrete logic about the fundamental functionality of the app.
   - add necessary tests that can help verify the intended behaviours
+- try to leverage existing functions as much as possible. before implementing any code ourselves, think whether the required functionality is general enough, or "org-mode enough", if so, search for existing solutions before reinventing the wheels ourselves.
 
-* TODO an example task
+* Built-in Functions Reference
+
+This section documents Emacs and Org-mode built-in functions we leverage.
+*Do not reinvent the wheel* — use these wherever possible.
+
+** Org-Element API (Parsing)
+
+rource: [[https://orgmode.org/worg/dev/org-element-api.html][Org Element API]]
+
+| Function                    | Purpose                                         |
+|-----------------------------+-------------------------------------------------|
+| =org-element-parse-buffer=    | Parse entire buffer into AST                    |
+| =org-element-at-point=        | Parse element at cursor position                |
+| =org-element-map=             | Traverse AST, collect/filter elements           |
+| =org-element-property=        | Get property from parsed element                |
+| =org-element-type=            | Get element type (headline, paragraph, etc.)    |
+| =org-element-contents=        | Get child elements                              |
+| =org-element-interpret-data=  | Convert AST back to Org syntax                  |
+| =org-element-headline-parser= | Parse a headline (returns plist with all props) |
+
+*** Headline properties available via =org-element-property=
+
+- =:raw-value= — headline text without tags
+- =:title= — parsed title
+- =:level= — headline level (1, 2, 3...)
+- =:tags= — list of tags
+- =:todo-keyword= — TODO state
+- =:priority= — priority character
+- =:begin=, =:end= — buffer positions
+- =:contents-begin=, =:contents-end= — body positions
+- =:PROPERTY-NAME= — any property from drawer (uppercase with colon)
+
+** Org Property API
+
+| Function                   | Purpose                            |
+|----------------------------+------------------------------------|
+| =org-entry-get=              | Get property value at point/marker |
+| =org-entry-put=              | Set property value                 |
+| =org-entry-delete=           | Delete a property                  |
+| =org-entry-properties=       | Get all properties as alist        |
+| =org-insert-property-drawer= | Insert empty property drawer       |
+
+** Org Duration API (=org-duration.el=)
+
+| Function                  | Purpose                                |
+|---------------------------+----------------------------------------|
+| =org-duration-to-minutes=   | Convert "1:30" or "1h 30m" to 90.0     |
+| =org-duration-from-minutes= | Convert 90 to "1:30" (respects format) |
+| =org-duration-p=            | Check if string is valid duration      |
+
+** Org Timestamp & Date
+
+| Function              | Purpose                               |
+|-----------------------+---------------------------------------|
+| =org-read-date=         | Interactive date prompt with calendar |
+| =org-time-stamp-format= | Get timestamp format string           |
+| =org-parse-time-string= | Parse Org timestamp to time list      |
+
+** Emacs Time Functions
+
+| Function           | Purpose                                        |
+|--------------------+------------------------------------------------|
+| =format-time-string= | Format time (=%Y-%m-%d=, =%V= for ISO week)        |
+| =decode-time=        | Time to (SEC MIN HOUR DAY MON YEAR DOW DST TZ) |
+| =encode-time=        | (SEC MIN...) to time value                     |
+| =time-subtract=      | Difference between two times                   |
+| =float-time=         | Time value to seconds as float                 |
+| =parse-time-string=  | Parse RFC 822 / ISO 8601 string                |
+| =format-seconds=     | Format duration: =%h:%.2m:%.2s=                  |
+
+*** ISO Week Number
+
+#+BEGIN_SRC elisp
+;; Get ISO week number
+(format-time-string "%G-W%V")  ; => "2026-W04"
+(format-time-string "%V")      ; => "04"
+#+END_SRC
+
+** Org-QL (Optional Dependency)
+
+Source: [[https://github.com/alphapapa/org-ql][github.com/alphapapa/org-ql]]
+
+If =org-ql= is available, use it for advanced querying instead of custom code.
+
+| Function      | Purpose                                     |
+|---------------+---------------------------------------------|
+| =org-ql-select= | Query files, return list of elements        |
+| =org-ql-search= | Interactive search with agenda-like display |
+
+*** Query predicates
+
+- =heading=, =regexp=, =tags=, =property=
+- =ts=, =ts-active=, =ts-inactive= (timestamp queries)
+- =scheduled=, =deadline=, =closed=
+
+*** Example
+
+#+BEGIN_SRC elisp
+;; Find all entries with tag "emacs" from this week
+(org-ql-select (doing--file-today)
+  '(and (tags "emacs")
+        (ts :from -7)))
+#+END_SRC
+
+* Phase 1: Foundation
+
+Infrastructure-level code that all other features depend on.
+
+** TODO Package skeleton and configuration
+
+Set up the main package file with proper headers and customization group.
+
+*** Implementation
+
+**** =doing.el= — main entry point
+
+- Update package headers (name, author, version, dependencies)
+- Minimum Emacs version: 27.1 (for =org-element= improvements)
+- Dependencies: =org= (built-in)
+- Optional: =org-ql= (for enhanced search)
+- Define =defgroup doing= with description
+- Key customization variables:
+  - =doing-directory= (default =~/org/doing/=)
+  - =doing-file-today= (default =today.org=)
+  - =doing-file-week= (default =week.org=)
+  - =doing-archive-directory= (default =archive/=)
+  only expose =doing-directory= for user customization for now, leave the rest as internal config.
+- End with =(provide 'doing)=
+
+**** Tests
+
+- =doing-test-customization-group-exists=
+- =doing-test-directory-default=
+
+** TODO File and directory utilities
+
+Create =doing-lib.el= with utilities for file path construction and directory management.
+
+*** Implementation
+
+**** Functions
+
+- =doing--directory ()= — return expanded =doing-directory=, create if needed
+- =doing--file-today ()= — return full path to =today.org=
+- =doing--file-week ()= — return full path to =week.org=
+- =doing--file-archive (year week)= — return path to =archive/YYYY-WNN.org=
+- =doing--ensure-directory ()= — create =doing-directory= and =archive/= if missing
+- =doing--ensure-file (path &optional title)= — create file with org header if missing
+
+**** Built-in functions to use
+
+- =make-directory= with =parents= arg
+- =file-exists-p=, =expand-file-name=
+
+**** Tests
+
+- =doing-test-directory-creation=
+- =doing-test-file-paths=
+- =doing-test-ensure-file-creates-with-header=
+
+** TODO Timestamp and duration utilities
+
+Thin wrappers around built-in functions for our specific needs.
+
+*** Implementation
+
+**** Functions (mostly wrappers)
+
+#+BEGIN_SRC elisp
+(defun doing--timestamp-now ()
+  "Return current time as Org inactive timestamp."
+  (format-time-string "[%Y-%m-%d %a %H:%M]"))
+
+(defun doing--timestamp-to-time (timestamp)
+  "Parse Org TIMESTAMP string to Emacs time."
+  (org-parse-time-string timestamp))
+
+(defun doing--timestamp-date (timestamp)
+  "Extract YYYY-MM-DD from TIMESTAMP."
+  (substring timestamp 1 11))
+
+(defun doing--duration-minutes (start-ts end-ts)
+  "Compute minutes between START-TS and END-TS timestamps."
+  (let ((start (org-parse-time-string start-ts))
+        (end (org-parse-time-string end-ts)))
+    (/ (float-time (time-subtract (encode-time end) (encode-time start)))
+       60.0)))
+
+(defun doing--duration-format (minutes)
+  "Format MINUTES as H:MM string."
+  (org-duration-from-minutes minutes))  ; <-- USE BUILT-IN!
+
+(defun doing--iso-week (&optional time)
+  "Return (YEAR WEEK) for TIME or now."
+  (let ((time (or time (current-time))))
+    (list (string-to-number (format-time-string "%G" time))
+          (string-to-number (format-time-string "%V" time)))))
+
+(defun doing--iso-week-string (&optional time)
+  "Return YYYY-WNN string."
+  (format-time-string "%G-W%V" (or time (current-time))))
+#+END_SRC
+
+**** Key insight
+
+- *Use =org-duration-from-minutes= and =org-duration-to-minutes=* — don't reimplement!
+- *Use =format-time-string= with =%V= and =%G=* for ISO week
+
+**** Tests
+
+- =doing-test-timestamp-now-format=
+- =doing-test-duration-calculation=
+- =doing-test-iso-week-string=
+
+** TODO Entry parsing with org-element
+
+Use =org-element= API to parse entries. *Do not write custom parsers.*
+
+*** Implementation
+
+**** Functions
+
+#+BEGIN_SRC elisp
+(defun doing--parse-entry-at-point ()
+  "Parse headline at point into entry plist."
+  (let ((el (org-element-at-point)))
+    (when (eq 'headline (org-element-type el))
+      (list :id (org-element-property :ID el)
+            :title (org-element-property :raw-value el)
+            :tags (org-element-property :tags el)
+            :started (org-element-property :STARTED el)
+            :ended (org-element-property :ENDED el)
+            :project (org-element-property :PROJECT el)
+            :begin (org-element-property :begin el)
+            :end (org-element-property :end el)))))
+
+(defun doing--parse-buffer ()
+  "Return list of entries in current buffer."
+  (org-element-map (org-element-parse-buffer 'headline) 'headline
+    (lambda (hl)
+      (list :id (org-element-property :ID hl)
+            :title (org-element-property :raw-value hl)
+            :tags (org-element-property :tags hl)
+            :started (org-element-property :STARTED hl)
+            :ended (org-element-property :ENDED hl)
+            :project (org-element-property :PROJECT hl)
+            :begin (org-element-property :begin hl)))))
+
+(defun doing--parse-file (path)
+  "Return list of entries from file at PATH."
+  (when (file-exists-p path)
+    (with-temp-buffer
+      (insert-file-contents path)
+      (org-mode)
+      (doing--parse-buffer))))
+#+END_SRC
+
+**** Key insight
+
+- =org-element-parse-buffer= with ='headline= granularity is fast
+- =org-element-map= handles traversal
+- Properties from drawer are available as =:PROPNAME= (uppercase)
+
+**** Tests
+
+- =doing-test-parse-entry-at-point=
+- =doing-test-parse-buffer-multiple=
+- =doing-test-parse-file=
+
+** TODO Entry serialization — plist to Org
+
+Write entry plists as Org headlines using built-in functions.
+
+*** Implementation
+
+**** Functions
+
+#+BEGIN_SRC elisp
+(defun doing--entry-to-org (entry)
+  "Convert ENTRY plist to Org headline string."
+  (let ((title (plist-get entry :title))
+        (tags (plist-get entry :tags))
+        (id (plist-get entry :id))
+        (started (plist-get entry :started))
+        (ended (plist-get entry :ended))
+        (project (plist-get entry :project))
+        (body (plist-get entry :body)))
+    (concat
+     "* " title
+     (when tags
+       (concat " :" (mapconcat #'identity tags ":") ":"))
+     "\n"
+     ":PROPERTIES:\n"
+     (format ":ID:       %s\n" id)
+     (format ":STARTED:  %s\n" started)
+     (when ended (format ":ENDED:    %s\n" ended))
+     (when ended
+       (format ":DURATION: %s\n"
+               (doing--duration-format
+                (doing--duration-minutes started ended))))
+     (when project (format ":PROJECT:  %s\n" project))
+     ":END:\n"
+     (when body (concat body "\n")))))
+
+(defun doing--append-entry-to-file (entry path)
+  "Append ENTRY to file at PATH."
+  (doing--ensure-file path)
+  (with-temp-buffer
+    (insert (doing--entry-to-org entry))
+    (append-to-file (point-min) (point-max) path)))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-entry-to-org-minimal=
+- =doing-test-entry-to-org-with-tags=
+- =doing-test-append-entry-to-file=
+
+** TODO Entry modification using org-entry API
+
+Use =org-entry-put= and =org-entry-get= for modifications. *Do not use regex.*
+
+*** Implementation
+
+**** Functions
+
+#+BEGIN_SRC elisp
+(defun doing--goto-entry (id &optional file)
+  "Go to entry with ID in FILE (default today.org). Return point or nil."
+  (let ((file (or file (doing--file-today))))
+    (when (file-exists-p file)
+      (with-current-buffer (find-file-noselect file)
+        (goto-char (point-min))
+        (when (re-search-forward
+               (format "^:ID: +%s$" (regexp-quote id)) nil t)
+          (org-back-to-heading t)
+          (point))))))
+
+(defun doing--update-entry-property (id property value &optional file)
+  "Set PROPERTY to VALUE for entry with ID."
+  (let ((file (or file (doing--file-today))))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (when (doing--goto-entry id file)
+          (org-entry-put nil property value)  ; <-- USE BUILT-IN!
+          (save-buffer))))))
+
+(defun doing--delete-entry (id &optional file)
+  "Delete entry with ID from FILE."
+  (let ((file (or file (doing--file-today))))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (when (doing--goto-entry id file)
+          (org-cut-subtree)
+          (save-buffer))))))
+#+END_SRC
+
+**** Key insight
+
+- =org-entry-put= and =org-entry-get= handle property drawer automatically
+- =org-back-to-heading= navigates reliably
+- =org-cut-subtree= removes entire entry
+
+**** Tests
+
+- =doing-test-update-property=
+- =doing-test-delete-entry=
+
+* Phase 2: Core Capture and Lifecycle
+
+The essential commands for logging activities.
+
+** TODO Generate entry ID
+
+Simple timestamp-based ID generation.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--generate-id ()
+  "Generate unique ID for entry."
+  (format-time-string "%Y%m%dT%H%M%S"))
+#+END_SRC
+
+One line. No need for =org-id= complexity.
+
+**** Tests
+
+- =doing-test-generate-id-format=
+
+** TODO =doing-now= — basic capture
+
+Start a new activity.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-now (title &optional tags)
+  "Start new activity with TITLE and optional TAGS."
+  (interactive "sWhat are you doing? ")
+  (doing--ensure-directory)
+  (let ((entry (list :id (doing--generate-id)
+                     :title title
+                     :tags tags
+                     :started (doing--timestamp-now))))
+    (doing--append-entry-to-file entry (doing--file-today))
+    (message "Started: %s" title)))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-now-creates-entry=
+- =doing-test-now-is-interactive=
+
+** TODO =doing-current= — show current activity
+
+Display unfinished activity.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--current-entry ()
+  "Return the current (unfinished) entry or nil."
+  (let ((entries (doing--parse-file (doing--file-today))))
+    (seq-find (lambda (e) (null (plist-get e :ended)))
+              (reverse entries))))  ; most recent first
+
+;;;###autoload
+(defun doing-current ()
+  "Show current activity in minibuffer."
+  (interactive)
+  (if-let ((entry (doing--current-entry)))
+      (let* ((started (plist-get entry :started))
+             (elapsed (doing--duration-minutes started (doing--timestamp-now)))
+             (title (plist-get entry :title)))
+        (message "[%s] %s" (doing--duration-format elapsed) title))
+    (message "No activity in progress")))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-current-shows-active=
+- =doing-test-current-when-nothing-active=
+
+** TODO =doing-finish= — finish current activity
+
+Mark current activity complete using =org-entry-put=.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-finish ()
+  "Finish the current activity."
+  (interactive)
+  (if-let ((entry (doing--current-entry)))
+      (let* ((id (plist-get entry :id))
+             (title (plist-get entry :title))
+             (started (plist-get entry :started))
+             (ended (doing--timestamp-now))
+             (duration (doing--duration-minutes started ended)))
+        (doing--update-entry-property id "ENDED" ended)
+        (doing--update-entry-property id "DURATION"
+                                      (doing--duration-format duration))
+        (message "Finished: %s (%s)" title (doing--duration-format duration)))
+    (user-error "No activity in progress")))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-finish-sets-ended=
+- =doing-test-finish-sets-duration=
+- =doing-test-finish-error-when-no-current=
+
+** TODO =doing-cancel= — cancel current activity
+
+Delete using =org-cut-subtree=.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-cancel ()
+  "Cancel the current activity."
+  (interactive)
+  (if-let ((entry (doing--current-entry)))
+      (let ((id (plist-get entry :id))
+            (title (plist-get entry :title)))
+        (when (yes-or-no-p (format "Cancel \"%s\"? " title))
+          (doing--delete-entry id)
+          (message "Cancelled: %s" title)))
+    (user-error "No activity in progress")))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-cancel-removes-entry=
+- =doing-test-cancel-error-when-no-current=
+
+** TODO =doing-note= — add note to current activity
+
+Append to entry body.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-note (text)
+  "Add TEXT as note to current activity."
+  (interactive "sNote: ")
+  (if-let ((entry (doing--current-entry)))
+      (let ((id (plist-get entry :id)))
+        (with-current-buffer (find-file-noselect (doing--file-today))
+          (save-excursion
+            (when (doing--goto-entry id)
+              (org-end-of-meta-data t)
+              (insert text "\n")
+              (save-buffer))))
+        (message "Note added"))
+    (user-error "No activity in progress")))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-note-appends-text=
+- =doing-test-note-error-when-no-current=
+
+** TODO =doing-now= enhancement — auto-finish previous
+
+Extend =doing-now= to auto-finish.
+
+*** Implementation
+
+Modify =doing-now= to call =doing-finish= first if there's an active entry:
+
+#+BEGIN_SRC elisp
+(defun doing-now (title &optional tags)
+  "Start new activity with TITLE and optional TAGS."
+  (interactive "sWhat are you doing? ")
+  ;; Auto-finish previous if exists
+  (when (doing--current-entry)
+    (doing-finish))
+  ;; ... rest of implementation
+  )
+#+END_SRC
+
+**** Tests
+
+- =doing-test-now-finishes-previous=
+
+** TODO =doing-again= — resume last activity
+
+Resume last finished activity.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--last-finished-entry ()
+  "Return the most recent finished entry."
+  (let ((entries (doing--parse-file (doing--file-today))))
+    (seq-find (lambda (e) (plist-get e :ended))
+              (reverse entries))))
+
+;;;###autoload
+(defun doing-again ()
+  "Resume the last finished activity."
+  (interactive)
+  (if-let ((entry (doing--last-finished-entry)))
+      (doing-now (plist-get entry :title) (plist-get entry :tags))
+    (user-error "No previous activity to resume")))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-again-copies-title-and-tags=
+- =doing-test-again-error-when-no-previous=
+
+* Phase 3: Rollover
+
+Automatic migration of entries between files.
+
+** TODO Daily rollover — today to week
+
+Move old entries from =today.org= to =week.org=.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--rollover-daily ()
+  "Move entries from previous days to week.org."
+  (let* ((today (format-time-string "%Y-%m-%d"))
+         (entries (doing--parse-file (doing--file-today)))
+         (old (seq-filter
+               (lambda (e)
+                 (not (string-prefix-p today (plist-get e :started))))
+               entries)))
+    (when old
+      ;; Append old entries to week.org
+      (dolist (entry old)
+        (doing--append-entry-to-file entry (doing--file-week)))
+      ;; Remove old entries from today.org
+      (dolist (entry old)
+        (doing--delete-entry (plist-get entry :id)))
+      (length old))))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-rollover-daily-moves-old=
+- =doing-test-rollover-daily-keeps-today=
+
+** TODO Weekly rollover — week to archive
+
+Archive old weeks.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--rollover-weekly ()
+  "Archive entries from previous weeks."
+  (let* ((current-week (doing--iso-week))
+         (entries (doing--parse-file (doing--file-week))))
+    (dolist (entry entries)
+      (let* ((started (plist-get entry :started))
+             (entry-week (doing--iso-week
+                          (encode-time
+                           (org-parse-time-string started)))))
+        (unless (equal entry-week current-week)
+          ;; Archive this entry
+          (let ((archive-file (doing--file-archive
+                               (car entry-week) (cadr entry-week))))
+            (doing--append-entry-to-file entry archive-file)
+            (doing--delete-entry (plist-get entry :id)
+                                 (doing--file-week))))))))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-rollover-weekly-archives=
+- =doing-test-rollover-weekly-correct-filename=
+
+** TODO Integrate rollover into commands
+
+Call rollover lazily.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defvar doing--last-rollover-time nil
+  "Time of last rollover check.")
+
+(defun doing--ensure-rollover ()
+  "Perform rollover if needed (once per hour max)."
+  (when (or (null doing--last-rollover-time)
+            (> (float-time (time-subtract (current-time)
+                                          doing--last-rollover-time))
+               3600))  ; 1 hour
+    (doing--rollover-daily)
+    (doing--rollover-weekly)
+    (setq doing--last-rollover-time (current-time))))
+#+END_SRC
+
+Add =(doing--ensure-rollover)= at start of =doing-now=, =doing-current=, views.
+
+**** Tests
+
+- =doing-test-ensure-rollover-throttled=
+
+* Phase 4: View Commands
+
+Display entries in temporary buffers.
+
+** TODO View buffer infrastructure
+
+Shared code for views.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--view-buffer (name entries &optional group-fn)
+  "Display ENTRIES in buffer *doing: NAME*.
+Optional GROUP-FN groups entries (e.g., by date)."
+  (let ((buf (get-buffer-create (format "*doing: %s*" name))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (org-mode)
+        ;; Insert entries
+        (if group-fn
+            ;; Grouped display
+            (dolist (group (seq-group-by group-fn entries))
+              (insert (format "* %s\n" (car group)))
+              (dolist (entry (cdr group))
+                (insert (doing--format-entry-line entry))))
+          ;; Flat display
+          (dolist (entry entries)
+            (insert (doing--format-entry-line entry))))
+        ;; Insert totals
+        (insert "\n---\n")
+        (insert (format "Total: %s\n"
+                        (doing--duration-format
+                         (doing--sum-durations entries))))
+        (goto-char (point-min))
+        (view-mode 1)))
+    (pop-to-buffer buf)))
+
+(defun doing--format-entry-line (entry)
+  "Format ENTRY as a single line for views."
+  (let ((title (plist-get entry :title))
+        (started (plist-get entry :started))
+        (ended (plist-get entry :ended))
+        (tags (plist-get entry :tags)))
+    (format "- [%s] %s%s%s\n"
+            (if ended
+                (doing--duration-format
+                 (doing--duration-minutes started ended))
+              (doing--duration-format
+               (doing--duration-minutes started (doing--timestamp-now))))
+            title
+            (if ended "" " *")
+            (if tags (concat " :" (mapconcat #'identity tags ":") ":") ""))))
+
+(defun doing--sum-durations (entries)
+  "Sum durations of ENTRIES in minutes."
+  (apply #'+
+         (mapcar (lambda (e)
+                   (let ((started (plist-get e :started))
+                         (ended (or (plist-get e :ended)
+                                    (doing--timestamp-now))))
+                     (doing--duration-minutes started ended)))
+                 entries)))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-view-buffer-created=
+- =doing-test-sum-durations=
+
+** TODO =doing-view-today=, =doing-view-yesterday=, =doing-view-week=
+
+Standard view commands.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-view-today ()
+  "Display today's activities."
+  (interactive)
+  (doing--ensure-rollover)
+  (doing--view-buffer "today" (doing--parse-file (doing--file-today))))
+
+;;;###autoload
+(defun doing-view-yesterday ()
+  "Display yesterday's activities."
+  (interactive)
+  (doing--ensure-rollover)
+  (let* ((yesterday (format-time-string "%Y-%m-%d"
+                      (time-subtract (current-time) (days-to-time 1))))
+         (all-entries (append (doing--parse-file (doing--file-today))
+                              (doing--parse-file (doing--file-week))))
+         (filtered (seq-filter
+                    (lambda (e)
+                      (string-prefix-p yesterday (plist-get e :started)))
+                    all-entries)))
+    (doing--view-buffer "yesterday" filtered)))
+
+;;;###autoload
+(defun doing-view-week ()
+  "Display this week's activities."
+  (interactive)
+  (doing--ensure-rollover)
+  (let ((entries (append (doing--parse-file (doing--file-today))
+                         (doing--parse-file (doing--file-week)))))
+    (doing--view-buffer "this week" entries
+                        (lambda (e) (doing--timestamp-date (plist-get e :started))))))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-view-today-shows-entries=
+- =doing-test-view-week-groups-by-date=
+
+** TODO =doing-view-recent= and =doing-view-since=
+
+Recent and date-range views.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-view-recent (&optional n)
+  "Display N most recent entries (default 10)."
+  (interactive "P")
+  (doing--ensure-rollover)
+  (let* ((n (or n 10))
+         (entries (append (doing--parse-file (doing--file-today))
+                          (doing--parse-file (doing--file-week))))
+         (sorted (seq-sort-by (lambda (e) (plist-get e :started))
+                              #'string> entries))
+         (recent (seq-take sorted n)))
+    (doing--view-buffer "recent" recent)))
+
+;;;###autoload
+(defun doing-view-since (date)
+  "Display entries since DATE."
+  (interactive (list (org-read-date nil nil nil "Since: ")))
+  (doing--ensure-rollover)
+  (let* ((all-entries (append (doing--parse-file (doing--file-today))
+                              (doing--parse-file (doing--file-week))))
+         (filtered (seq-filter
+                    (lambda (e)
+                      (string>= (plist-get e :started)
+                                (concat "[" date)))
+                    all-entries)))
+    (doing--view-buffer (format "since %s" date) filtered)))
+#+END_SRC
+
+Uses =org-read-date= for interactive date input!
+
+**** Tests
+
+- =doing-test-view-recent-limits=
+- =doing-test-view-since-filters=
+
+* Phase 5: Reports
+
+Time totals and aggregation.
+
+** TODO Duration aggregation utilities
+
+Group and sum by tag/project.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--group-by-tag (entries)
+  "Return alist of (TAG . ENTRIES) for each tag."
+  (let ((result nil))
+    (dolist (entry entries)
+      (dolist (tag (plist-get entry :tags))
+        (push entry (alist-get tag result nil nil #'equal))))
+    result))
+
+(defun doing--totals-by-tag (entries)
+  "Return alist of (TAG . MINUTES) sorted by minutes desc."
+  (let ((groups (doing--group-by-tag entries)))
+    (seq-sort-by #'cdr #'>
+                 (mapcar (lambda (g)
+                           (cons (car g) (doing--sum-durations (cdr g))))
+                         groups))))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-totals-by-tag=
+
+** TODO =doing-totals=
+
+Show time totals.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-totals ()
+  "Show time totals for this week by tag."
+  (interactive)
+  (doing--ensure-rollover)
+  (let* ((entries (append (doing--parse-file (doing--file-today))
+                          (doing--parse-file (doing--file-week))))
+         (totals (doing--totals-by-tag entries))
+         (buf (get-buffer-create "*doing: totals*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "Totals for %s\n\n" (doing--iso-week-string)))
+        (insert "By tag:\n")
+        (dolist (pair totals)
+          (insert (format "  %-16s %s\n" (car pair)
+                          (doing--duration-format (cdr pair)))))
+        (insert "  ----------------\n")
+        (insert (format "  %-16s %s\n" "Total"
+                        (doing--duration-format
+                         (doing--sum-durations entries))))
+        (goto-char (point-min))
+        (view-mode 1)))
+    (pop-to-buffer buf)))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-totals-displays=
+
+* Phase 6: Search (Optional org-ql integration)
+
+Query and filter entries.
+
+** TODO Basic search (no org-ql)
+
+Simple text/tag search without org-ql.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defun doing--entries-matching (predicate)
+  "Return entries matching PREDICATE from today and week."
+  (let ((entries (append (doing--parse-file (doing--file-today))
+                         (doing--parse-file (doing--file-week)))))
+    (seq-filter predicate entries)))
+
+;;;###autoload
+(defun doing-search (query)
+  "Search entries matching QUERY (text or @tag)."
+  (interactive "sSearch: ")
+  (doing--ensure-rollover)
+  (let* ((predicate
+          (cond
+           ;; @tag syntax
+           ((string-prefix-p "@" query)
+            (let ((tag (substring query 1)))
+              (lambda (e) (member tag (plist-get e :tags)))))
+           ;; Plain text
+           (t (lambda (e)
+                (string-match-p (regexp-quote query)
+                                (plist-get e :title))))))
+         (results (doing--entries-matching predicate)))
+    (if results
+        (doing--view-buffer (format "search: %s" query) results)
+      (message "No entries matching \"%s\"" query))))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-search-by-text=
+- =doing-test-search-by-tag=
+
+** IDEA Enhanced search with org-ql
+
+If =org-ql= is installed, provide richer queries.
+
+*** Implementation (optional)
+
+#+BEGIN_SRC elisp
+(defun doing-search-ql (query)
+  "Search with org-ql QUERY syntax."
+  (interactive "sQuery (org-ql): ")
+  (require 'org-ql)
+  (org-ql-search (list (doing--file-today) (doing--file-week))
+                 query))
+#+END_SRC
+
+This is optional and only available when org-ql is installed.
+
+* Phase 7: Auto-tagging
+
+Context-aware automatic tagging.
+
+** TODO =doing-auto-tags= configuration
+
+Directory-based tagging.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defcustom doing-auto-tags nil
+  "Alist mapping directory prefixes to tags/properties.
+Example:
+  ((\"~/projects/doing.el\" :project \"doing-el\" :tags (\"emacs\"))
+   (\"~/projects/api\"      :project \"api\"      :tags (\"backend\")))"
+  :type '(alist :key-type string
+                :value-type (plist :key-type symbol :value-type sexp))
+  :group 'doing)
+
+(defun doing--auto-tags-for-directory (&optional dir)
+  "Return auto-tags plist for DIR, or nil."
+  (let ((dir (expand-file-name (or dir default-directory))))
+    (cdr (seq-find (lambda (entry)
+                     (string-prefix-p (expand-file-name (car entry)) dir))
+                   (seq-sort-by (lambda (e) (length (car e))) #'>
+                                doing-auto-tags)))))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-auto-tags-matching=
+
+** TODO Integrate auto-tagging into =doing-now=
+
+Apply auto-tags.
+
+*** Implementation
+
+Modify =doing-now=:
+
+#+BEGIN_SRC elisp
+(defun doing-now (title &optional tags)
+  (interactive "sWhat are you doing? ")
+  (when (doing--current-entry)
+    (doing-finish))
+  (doing--ensure-directory)
+  ;; Get auto-tags
+  (let* ((auto (doing--auto-tags-for-directory))
+         (auto-tags (plist-get auto :tags))
+         (project (plist-get auto :project))
+         (all-tags (delete-dups (append tags auto-tags)))
+         (entry (list :id (doing--generate-id)
+                      :title title
+                      :tags all-tags
+                      :started (doing--timestamp-now)
+                      :project project)))
+    (doing--append-entry-to-file entry (doing--file-today))
+    (message "Started: %s" title)))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-now-applies-auto-tags=
+- =doing-test-now-applies-auto-project=
+
+* Phase 8: Utility and Polish
+
+Remaining commands.
+
+** TODO =doing-last=, =doing-edit=, =doing-open=
+
+Utility commands.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun doing-last ()
+  "Show last entry in minibuffer."
+  (interactive)
+  (let ((entries (doing--parse-file (doing--file-today))))
+    (if-let ((entry (car (last entries))))
+        (message "%s%s"
+                 (plist-get entry :title)
+                 (if (plist-get entry :ended) "" " *"))
+      (message "No entries"))))
+
+;;;###autoload
+(defun doing-edit ()
+  "Open today.org and jump to current entry."
+  (interactive)
+  (find-file (doing--file-today))
+  (when-let ((entry (doing--current-entry)))
+    (goto-char (plist-get entry :begin))
+    (org-show-context)))
+
+;;;###autoload
+(defun doing-open (&optional file)
+  "Open doing log FILE (default today)."
+  (interactive
+   (list (when current-prefix-arg
+           (completing-read "File: "
+                            '("today" "week")))))
+  (find-file (pcase file
+               ("week" (doing--file-week))
+               (_ (doing--file-today)))))
+#+END_SRC
+
+**** Tests
+
+- =doing-test-last-shows-entry=
+- =doing-test-edit-opens-file=
+
+** TODO Keybinding setup
+
+Provide prefix keymap.
+
+*** Implementation
+
+#+BEGIN_SRC elisp
+(defvar doing-command-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "n" #'doing-now)
+    (define-key map "f" #'doing-finish)
+    (define-key map "c" #'doing-current)
+    (define-key map "a" #'doing-again)
+    (define-key map "t" #'doing-view-today)
+    (define-key map "w" #'doing-view-week)
+    (define-key map "T" #'doing-totals)
+    (define-key map "s" #'doing-search)
+    (define-key map "e" #'doing-edit)
+    (define-key map "o" #'doing-open)
+    map)
+  "Keymap for doing commands.
+Suggested binding: (global-set-key (kbd \"C-c d\") doing-command-map)")
+#+END_SRC
+
+** TODO Package finalization
+
+Final cleanup.
+
+*** Checklist
+
+- [ ] All public functions have docstrings
+- [ ] Autoload cookies on user-facing commands
+- [ ] Package headers complete
+- [ ] Byte-compiles without warnings
+- [ ] Tests pass
