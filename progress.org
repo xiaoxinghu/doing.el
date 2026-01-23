@@ -46,3 +46,35 @@
     - =doing--ensure-directory= is a thin wrapper that just calls =doing--directory= since that already creates directories
     - Must call =expand-file-name= in all path functions to ensure absolute paths
     - Tests need to verify both file existence AND that files are directories with =file-directory-p=
+
+* 2026-01-23 - Timestamp and duration utilities
+- what was implemented
+  - Added timestamp and duration utilities to doing-lib.el
+  - =doing--timestamp-now ()= — returns current time as Org inactive timestamp [YYYY-MM-DD DDD HH:MM]
+  - =doing--timestamp-to-time (timestamp)= — parses Org timestamp string to Emacs time structure
+  - =doing--timestamp-date (timestamp)= — extracts YYYY-MM-DD from timestamp string
+  - =doing--duration-minutes (start-ts end-ts)= — computes elapsed minutes between two timestamps
+  - =doing--duration-format (minutes)= — formats minutes as H:MM string using =org-duration-from-minutes=
+  - =doing--iso-week (&optional time)= — returns (YEAR WEEK) list for given time or now
+  - =doing--iso-week-string (&optional time)= — returns YYYY-WNN string for archive file naming
+  - Added 7 comprehensive tests covering all timestamp/duration functionality
+  - All 15 tests pass successfully
+- files changed
+  - doing-lib.el — added timestamp and duration utility functions
+  - tests/doing-test.el — added 7 new tests (doing-test-timestamp-now-format, doing-test-timestamp-date-extraction, doing-test-duration-calculation, doing-test-duration-format, doing-test-iso-week-string, doing-test-iso-week, doing-test-timestamp-to-time)
+- learnings
+  - patterns discovered
+    - =format-time-string= with =%G= gives ISO year, =%V= gives ISO week number (zero-padded)
+    - =org-parse-time-string= converts Org timestamps to decoded time lists (9 elements)
+    - =encode-time= converts decoded time back to internal time representation
+    - =time-subtract= and =float-time= are used together to compute elapsed seconds
+    - =org-duration-from-minutes= handles duration formatting automatically, respecting =org-duration-format=
+    - ISO 8601 week numbers can differ from calendar year (e.g., early January might be week 52/53 of previous year)
+    - Using =encode-time= in tests with explicit values (sec min hour day month year) creates reproducible test fixtures
+  - gotchas encountered
+    - Org inactive timestamps use brackets =[...]= not angle brackets =<...>=
+    - =org-parse-time-string= returns a 9-element list: (SEC MIN HOUR DAY MON YEAR DOW DST TZ)
+    - ISO week calculation requires =%G= (ISO year) not =%Y= (calendar year) to handle year boundaries correctly
+    - =time-subtract= expects both arguments to be time values (not decoded time), so must call =encode-time= first
+    - Duration formatting behavior depends on =org-duration-format= customization, so tests check for presence of digits rather than exact format
+    - Week numbers are 1-indexed and can go up to 53 in some years (ISO 8601 long years)

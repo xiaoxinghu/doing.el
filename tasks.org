@@ -71,7 +71,15 @@ Create =doing-lib.el= with utilities for file path construction and directory ma
 - =doing-test-file-paths=
 - =doing-test-ensure-file-creates-with-header=
 
-** TODO Timestamp and duration utilities
+** DONE Timestamp and duration utilities
+:PROPERTIES:
+:ID:       42F9B711-672A-4648-A9BA-0B3018B8A7A5
+:CLAUDE_TIME_MS: 157535
+:CLAUDE_COST: 0.61087765
+:CLAUDE_INPUT_TOKENS: 68
+:CLAUDE_OUTPUT_TOKENS: 6529
+:CLAUDE_SESSION_ID: a39ede89-2c48-4e86-9ae9-e8110f0e50fe
+:END:
 
 Thin wrappers around built-in functions for our specific needs.
 

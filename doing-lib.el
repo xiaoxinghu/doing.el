@@ -60,6 +60,50 @@ Otherwise, derive title from filename."
         (insert (format "#+TITLE: %s\n\n" file-title))
         (write-region (point-min) (point-max) path)))))
 
+;;; Timestamp and Duration Utilities
+
+(defun doing--timestamp-now ()
+  "Return current time as Org inactive timestamp.
+Format: [YYYY-MM-DD DDD HH:MM]"
+  (format-time-string "[%Y-%m-%d %a %H:%M]"))
+
+(defun doing--timestamp-to-time (timestamp)
+  "Parse Org TIMESTAMP string to Emacs time.
+Returns time value suitable for `encode-time' and related functions."
+  (org-parse-time-string timestamp))
+
+(defun doing--timestamp-date (timestamp)
+  "Extract YYYY-MM-DD from TIMESTAMP.
+TIMESTAMP should be an Org timestamp like [2026-01-23 Thu 14:30]."
+  (substring timestamp 1 11))
+
+(defun doing--duration-minutes (start-ts end-ts)
+  "Compute minutes between START-TS and END-TS timestamps.
+Both arguments should be Org timestamp strings.
+Returns duration as a float representing minutes."
+  (let ((start (org-parse-time-string start-ts))
+        (end (org-parse-time-string end-ts)))
+    (/ (float-time (time-subtract (encode-time end) (encode-time start)))
+       60.0)))
+
+(defun doing--duration-format (minutes)
+  "Format MINUTES as H:MM string.
+Uses `org-duration-from-minutes' for consistent formatting."
+  (org-duration-from-minutes minutes))
+
+(defun doing--iso-week (&optional time)
+  "Return (YEAR WEEK) for TIME or now.
+Returns a list of two integers: (YEAR WEEK-NUMBER).
+Uses ISO 8601 week date system."
+  (let ((time (or time (current-time))))
+    (list (string-to-number (format-time-string "%G" time))
+          (string-to-number (format-time-string "%V" time)))))
+
+(defun doing--iso-week-string (&optional time)
+  "Return YYYY-WNN string for TIME or now.
+Format matches archive file naming: 2026-W04"
+  (format-time-string "%G-W%V" (or time (current-time))))
+
 (provide 'doing-lib)
 
 ;;; doing-lib.el ends here
