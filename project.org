@@ -1,3 +1,10 @@
 #+title: doing.el
+#+todo: IDEA TODO | DONE KILLED
 
-* Instructions
+For new feature/task to be marked as =DONE=, make sure that:
+- all existing tests passes
+- new tests are added for guarding the new feature, and passing
+  - design tests with purpose, only test things that tend to remain unchanged in a long term, e.g. the interface (interactive functions), and concrete logic about the fundamental functionality of the app.
+  - add necessary tests that can help verify the intended behaviours
+
+* TODO an example task
