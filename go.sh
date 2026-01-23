@@ -49,8 +49,11 @@ APPEND to the end of @progress.org
 ```
 EOF
 
-jq -e '.is_error == false' "$result_file" > /dev/null \
-  || { echo "Claude error"; exit 1; }
+if ! jq -e '.is_error == false' "$result_file" > /dev/null; then
+  err=$(jq -r '.result // "Claude error"' "$result_file")
+  echo "$err" >&2
+  exit 1
+fi
 
 cost=$(jq -r '.total_cost_usd // 0' "$result_file")
 time=$(jq -r '.duration_ms // 0' "$result_file")
