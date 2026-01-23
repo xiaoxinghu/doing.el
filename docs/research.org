@@ -1,0 +1,265 @@
+#+TITLE: Research Notes on the "doing" CLI Tool
+#+AUTHOR: Xiaoxing Hu
+#+DATE: <2026-01-23>
+#+OPTIONS: toc:2 num:nil
+#+STARTUP: overview
+
+* Overview
+
+This document summarizes research into the *doing* CLI tool by Brett Terpstra, with the goal of:
+- understanding its core usage model,
+- identifying its *killer features*,
+- and extracting an MVP feature set suitable for an Emacs + Org-mode implementation that makes a *real impact*, rather than duplicating existing Org functionality with a nicer UI.
+
+Primary sources include:
+- the official user manual and command reference,
+- GitHub issues and wiki pages,
+- and documentation on the TaskPaper format that *doing* is built on.
+
+* What is *doing* Optimizing For?
+
+At its core, *doing* is a **“What was I doing?” system** rather than a traditional task manager.
+
+It is best understood as:
+- a fast, append-only *activity log*,
+- stored as plain text (TaskPaper format),
+- with strong support for *retrospective reporting*:
+  - what you did today,
+  - what you did this week,
+  - how much time you spent on a tag/project,
+  - where your time went.
+
+The workflow encourages:
+- *capture first, organize later*,
+- minimal upfront structure,
+- and heavy reliance on tags + timestamps for later analysis.
+
+**Key reference:**
+- Official command reference:
+  [[https://brettterpstra.com/doing_all_commands/][https://brettterpstra.com/doing_all_commands/]]
+- Doing 2.0 announcement and philosophy:
+  [[https://brettterpstra.com/2021/11/20/doing-2-dot-0/][https://brettterpstra.com/2021/11/20/doing-2-dot-0/]]
+
+* TaskPaper Format: The Core Abstractions
+
+*doing* inherits almost all of its expressive power from the **TaskPaper format**, which has a very small but powerful conceptual model:
+
+- *Projects*
+  Lines ending with a colon, e.g.:
+  : Work:
+
+- *Tasks*
+  Lines starting with a dash:
+  : - Fix bug @coding
+
+- *Notes*
+  Any plain text line that is neither a project nor a task.
+
+- *Tags*
+  Inline metadata of the form:
+  : @tag
+  : @tag(value)
+
+Tags can encode structured data:
+- timestamps: =@done(2026-01-23 10:30)=
+- dates: =@due(2026-02-01)=
+- arbitrary metadata: =@project(foo)=
+
+This single feature (tags with optional values) enables:
+- filtering,
+- sorting,
+- querying,
+- and time calculations.
+
+**Key references:**
+- TaskPaper getting started guide:
+  [[https://guide.taskpaper.com/getting-started/][https://guide.taskpaper.com/getting-started/]]
+- TaskPaper official site:
+  [[https://www.taskpaper.com/][https://www.taskpaper.com/]]
+
+* Top / Killer Features of *doing*
+
+**These are the features users consistently value and rely on.**
+
+**1. Fast, Low-Friction Capture**
+
+- One-command logging of what you are doing *right now*.
+- No need to predefine projects or tasks.
+- Encourages journaling behavior rather than planning behavior.
+
+This is the emotional hook: *very low resistance to capture*.
+
+**2. Automatic Time Tracking via Timestamps**
+
+- Every entry has a start time.
+- Marking an entry as finished adds an =@done(timestamp)= tag.
+- The elapsed time is automatically computed.
+
+This enables accurate duration tracking without explicit “start/stop timers”.
+
+Reference:
+- Time tracking wiki page:
+  [[https://github.com/ttscoff/doing/wiki/Time-Tracking][https://github.com/ttscoff/doing/wiki/Time-Tracking]]
+
+**3. Time Totals and Reports (Where Did My Time Go?)**
+
+- Built-in commands to compute:
+  - totals by tag,
+  - totals per day/week,
+  - totals for arbitrary time ranges.
+- Reporting is a first-class feature, not an afterthought.
+
+This is where *doing* goes beyond a simple log.
+
+**4. Powerful Filtering and Querying**
+
+Filtering is significantly richer than simple text search:
+
+- Tag inclusion/exclusion
+- Boolean-like token filtering (=+must=, =-must_not=)
+- Tag value comparisons (=done < 2 weeks ago=)
+- Filtering by properties like:
+  - title,
+  - time,
+  - duration.
+
+Reference:
+- Tag and search filtering documentation:
+  [[https://github.com/ttscoff/doing/wiki/Tag-And-Search-Filtering][https://github.com/ttscoff/doing/wiki/Tag-And-Search-Filtering]]
+
+**5. Custom Views**
+
+- Users can define named “views”:
+  - predefined filters,
+  - date ranges,
+  - output formats.
+- Views are reusable and discoverable.
+
+This allows multiple lenses on the same underlying log.
+
+Reference:
+- Full command list (views, export, etc.):
+  [[https://brettterpstra.com/doing_all_commands/][https://brettterpstra.com/doing_all_commands/]]
+
+**6. Context-Aware Auto-Tagging (tag_dir)**
+
+- *doing* supports directory-based default tags via local config files.
+- When run inside a project directory, entries automatically inherit project context.
+
+This is especially valuable for development work.
+
+Reference:
+- Time tracking and configuration discussion:
+  [[https://github.com/ttscoff/doing/wiki/Time-Tracking][https://github.com/ttscoff/doing/wiki/Time-Tracking]]
+
+* What GitHub Issues Reveal About User Priorities
+
+A scan of open and recurring issues shows that users care most about:
+
+**1. Time Tracking and Accounting**
+- Budgets and time remaining
+- Better totals and formatting
+- Tracking time by section/project, not just tags
+
+Examples:
+- Budget/time remaining feature request:
+  [[https://github.com/ttscoff/doing/issues/180][https://github.com/ttscoff/doing/issues/180]]
+- Totals formatting issues:
+  [[https://github.com/ttscoff/doing/issues/170][https://github.com/ttscoff/doing/issues/170]]
+
+**2. View Correctness and Customization**
+- Ensuring custom views respect filters correctly
+- Configuration persistence issues
+
+Examples:
+- Custom view filtering bug:
+  [[https://github.com/ttscoff/doing/issues/175][https://github.com/ttscoff/doing/issues/175]]
+
+**3. Installation and Packaging Stability**
+- Ruby/gem/brew friction still appears in issues
+- While not conceptually interesting, it affects adoption
+
+Overall takeaway:
+*The workflow is loved; users mostly want better reporting and fewer rough edges.*
+
+* MVP Feature Set for an Emacs + Org-Mode Implementation
+
+Org-mode already has:
+- capture,
+- clocks,
+- tags,
+- properties,
+- agenda,
+- queries.
+
+So the goal is *not* to replicate everything, but to capture what *doing* does **better or more intuitively**.
+
+**The key gap in Org:**
+Org is task-centric and structure-heavy; *doing* is log-centric and frictionless.
+
+**MVP should focus on behavior, not UI.**
+
+**MVP-1: A Dedicated Org “Activity Log” File**
+
+- One command (e.g. =doing-now=) that appends an entry.
+- Entries live in a dedicated log file.
+- Minimal structure:
+  - timestamp
+  - title
+  - tags / properties
+  - optional note body
+
+This mirrors *doing*’s capture-first philosophy.
+
+**MVP-2: Finish / Resume Semantics (Not Org Clocking)**
+
+- Command to “finish” an entry:
+  - sets end timestamp,
+  - computes duration.
+- Command to resume or repeat an activity.
+
+This feels like a journal, not a TODO workflow.
+
+**MVP-3: Opinionated Reports**
+
+Interactive commands that generate temporary report buffers:
+- today / yesterday
+- last N days
+- since date
+- totals by tag
+
+Date ranges should be *easy*, not verbose.
+
+**MVP-4: Project-Aware Auto-Tagging via `default-directory`**
+
+- Automatically tag entries based on:
+  - git repo,
+  - directory,
+  - project.
+- Implemented via dir-locals or lightweight config.
+
+This directly replaces *doing*’s =tag_dir= feature.
+
+**MVP-5: Named Views (Preset Reports)**
+
+- Small, opinionated view system:
+  - named presets,
+  - simple definitions,
+  - interactive selection.
+- Comparable to *doing* custom views, but Org-native.
+
+* Explicit Non-Goals for MVP
+
+To avoid becoming “Org with prettier commands”, the MVP should *exclude*:
+
+- Large export format matrices (HTML, JSON, etc.)
+- Full TaskPaper compatibility layers
+- Advanced boolean query DSLs on day one
+
+These can come later if the core workflow proves useful.
+
+* Positioning Summary
+
+#+BEGIN_QUOTE
+“*doing*, but Org-first: a frictionless activity log with time accounting and reusable views, without forcing everything into tasks.”
+#+END_QUOTE

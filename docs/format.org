@@ -1,0 +1,330 @@
+#+TITLE: Org-based Doing — Storage & Archival Design (Opinionated)
+#+AUTHOR: Xiaoxing Hu
+#+DATE: <2026-01-23>
+#+OPTIONS: toc:2 num:nil
+#+STARTUP: overview
+
+* Background: How the Original =doing= CLI Handles Storage
+
+Before defining a new storage model, it is useful to understand how the original =doing= tool works.
+
+** Key facts
+
+- =doing= stores *all entries in a single plain-text file*
+- Default location:
+  =~/.doing=
+- Format:
+  TaskPaper
+- All commands operate by:
+  - appending new entries
+  - filtering the same file for views and reports
+- There is *no internal partitioning* by day, week, or month
+
+Performance in the CLI is achieved because:
+- files are typically small
+- parsing is done non-interactively
+- no editor rendering is involved
+
+** Implication for Org-mode
+
+Org-mode performance is sensitive to:
+- file size
+- headline depth
+- refontification and folding
+
+What works for a CLI parsing text does *not* automatically scale to an interactive structured editor.
+
+* Design Principle: Dictated Structure Over Configuration
+
+This package intentionally *dictates* the storage model.
+
+#+BEGIN_QUOTE
+The package defines the structure. Users do not configure it.
+#+END_QUOTE
+
+** Rationale
+
+- Avoid combinatorial edge cases
+- Eliminate migration complexity
+- Guarantee predictable performance
+- Reduce long-term maintenance burden
+- Provide a simple, stable mental model
+
+Freedom is preserved at the *content level*, not the *storage level*.
+
+* Final Storage Model (Authoritative)
+
+The system uses **three tiers of files**:
+
+1. A *hot* file for today
+2. A *warm* file for the current week
+3. *Cold* archive files for past weeks
+
+Only *weekly files* are permanent units of history.
+
+* Canonical Folder Structure
+
+The folder structure is fixed and internal.
+
+#+BEGIN_SRC ascii
+~/org/doing/
+├── today.org
+├── week.org
+└── archive/
+    ├── 2026-W01.org
+    ├── 2026-W02.org
+    └── ...
+#+END_SRC
+
+** Semantics
+
+- =today.org=
+  - contains only entries started *today*
+  - always very small
+  - written frequently
+- =week.org=
+  - contains entries for the *current ISO week*
+  - queried often
+- =archive/YYYY-WW.org=
+  - immutable historical records
+  - one file per ISO week
+
+* Entry Lifecycle
+
+Entries move *forward in time* and are never rewritten.
+
+** Capture
+
+- New entries are always appended to =today.org=
+
+** Daily rollover
+
+On the first command executed on a new day:
+
+- all entries from yesterday are moved from =today.org= to =week.org=
+- =today.org= is cleared or recreated
+
+** Weekly rollover
+
+When the ISO week changes:
+
+- =week.org= is moved to:
+  =doing/archive/YYYY-WW.org=
+- a new empty =week.org= is created
+
+Rollover is:
+- automatic
+- lazy (triggered by user commands)
+- idempotent
+
+* Why This Model Is Performant
+
+** Hot paths
+
+Examples:
+- start a new entry
+- finish an entry
+- view today
+
+Files touched:
+- =today.org= only
+
+** Warm paths
+
+Examples:
+- this week
+- last 7 days
+- recent tag totals
+
+Files touched:
+- =week.org=
+- at most one archive file
+
+** Cold paths
+
+Examples:
+- monthly or yearly retrospectives
+
+Files touched:
+- archive files only
+
+#+BEGIN_QUOTE
+Common commands never require scanning unbounded history.
+#+END_QUOTE
+
+* File Semantics & Guarantees
+
+** =today.org=
+
+- volatile
+- safe to rewrite
+- safe to delete if corrupted
+- never archived directly
+
+** =week.org=
+
+- append-only
+- authoritative until archived
+- contains both active and finished entries
+
+** Archive files
+
+- immutable
+- never modified after creation
+- safe for caching or indexing later
+
+* Canonical Entry Format
+
+Each activity is represented by **one Org headline**.
+
+#+BEGIN_SRC org
+,* Write Org-based doing design :emacs:design:
+:PROPERTIES:
+:ID:       20260123T101532
+:STARTED:  [2026-01-23 Thu 10:15]
+:ENDED:    [2026-01-23 Thu 11:02]
+:DURATION: 0:47
+:PROJECT:  doing-el
+:CONTEXT:  emacs
+:END:
+Notes, links, or free text go here.
+#+END_SRC
+
+** Rules
+
+- No TODO keywords
+- Completion is defined by the presence of =ENDED=
+- =DURATION= is derived, never authoritative
+- Headline text is the human description
+
+* Tags vs Properties
+
+** Tags
+
+Use tags for:
+- classification
+- aggregation
+- reporting
+
+Example:
+
+#+BEGIN_SRC org
+,* Fix auth bug :backend:bug:
+#+END_SRC
+
+Tags are used for:
+- totals by tag
+- grouping
+- filtering
+
+** Properties
+
+Use properties for:
+- facts
+- measurements
+- metadata
+
+Examples:
+- STARTED / ENDED / DURATION
+- PROJECT
+- CONTEXT
+- CLIENT
+
+#+BEGIN_QUOTE
+If you want to *sum or group*, use tags.
+If you want to *measure or compare*, use properties.
+#+END_QUOTE
+
+* File-Level Structure
+
+Files are flat by default.
+
+#+BEGIN_SRC org
+,#+TITLE: Doing — Week 01, 2026
+,
+,* Write Org-based doing design :emacs:
+,* Debug auth middleware :backend:
+,* Review PRs :code-review:
+#+END_SRC
+
+Optional cosmetic grouping (ignored by logic):
+
+#+BEGIN_SRC org
+,* Monday
+,** Write Org-based doing design
+,** Review PRs
+#+END_SRC
+
+Structural headers must not affect semantics.
+
+* Rollover Logic (Conceptual)
+
+Rollover is driven purely by timestamps inside entries.
+
+** Properties
+
+- Do not rely on file modification time
+- Do not rely on user locale state
+- Always compute using timestamps
+
+** Pseudo-process
+
+- Determine today’s date
+- If =today.org= contains entries not from today:
+  - move them to =week.org=
+- If ISO week of entries in =week.org= < current ISO week:
+  - archive =week.org=
+  - create a new empty =week.org=
+
+* Why Weekly Archives
+
+** Daily archives
+
+- too many files
+- poor signal-to-noise
+- awkward aggregation
+
+** Monthly archives
+
+- files grow too large
+- performance degrades again
+
+** Weekly archives
+
+- natural work rhythm
+- predictable size
+- aligns with retrospectives
+- matches =doing='s work-week bias
+
+#+BEGIN_QUOTE
+Weekly is the smallest unit that still feels meaningful.
+#+END_QUOTE
+
+* Migration & Stability Story
+
+Because the structure is dictated:
+
+- no combinatorial configuration states
+- no user-defined layouts to migrate
+- invariants remain stable over time
+
+Future tools may:
+- import TaskPaper =doing= logs
+- import org-clock data
+- recompute durations
+
+But the *internal storage contract never changes*.
+
+* Summary
+
+** This design provides
+
+- doing-style workflow, Org-native
+- bounded performance
+- minimal configuration
+- clear data ownership
+- long-term stability
+
+#+BEGIN_QUOTE
+Dictate structure. Preserve freedom in content.
+#+END_QUOTE
