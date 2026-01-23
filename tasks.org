@@ -1173,6 +1173,9 @@ Utility commands.
 - =doing-test-edit-opens-file=
 
 ** TODO Keybinding setup
+:PROPERTIES:
+:ID:       68608895-3CB3-4FE0-88C7-4728A0C95445
+:END:
 
 Provide prefix keymap.
 
