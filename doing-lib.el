@@ -146,6 +146,46 @@ Each entry is a plist with entry data."
       (org-mode)
       (doing--parse-buffer))))
 
+;;; Entry Serialization Utilities
+
+(defun doing--entry-to-org (entry)
+  "Convert ENTRY plist to Org headline string.
+ENTRY should be a plist with keys: :id, :title, :tags, :started,
+:ended, :project, :body (optional).
+Returns a formatted Org headline with properties drawer."
+  (let ((title (plist-get entry :title))
+        (tags (plist-get entry :tags))
+        (id (plist-get entry :id))
+        (started (plist-get entry :started))
+        (ended (plist-get entry :ended))
+        (project (plist-get entry :project))
+        (body (plist-get entry :body)))
+    (concat
+     "* " title
+     (when tags
+       (concat " :" (mapconcat #'identity tags ":") ":"))
+     "\n"
+     ":PROPERTIES:\n"
+     (format ":ID:       %s\n" id)
+     (format ":STARTED:  %s\n" started)
+     (when ended (format ":ENDED:    %s\n" ended))
+     (when ended
+       (format ":DURATION: %s\n"
+               (doing--duration-format
+                (doing--duration-minutes started ended))))
+     (when project (format ":PROJECT:  %s\n" project))
+     ":END:\n"
+     (when body (concat body "\n")))))
+
+(defun doing--append-entry-to-file (entry path)
+  "Append ENTRY to file at PATH.
+ENTRY should be a plist suitable for `doing--entry-to-org'.
+Creates the file with proper Org header if it doesn't exist."
+  (doing--ensure-file path)
+  (with-temp-buffer
+    (insert (doing--entry-to-org entry))
+    (append-to-file (point-min) (point-max) path)))
+
 (provide 'doing-lib)
 
 ;;; doing-lib.el ends here

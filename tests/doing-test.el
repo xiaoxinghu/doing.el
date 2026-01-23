@@ -402,4 +402,128 @@
       (when (file-exists-p temp-dir)
         (delete-directory temp-dir t)))))
 
+;;; Phase 5: Entry serialization tests
+
+(ert-deftest doing-test-entry-to-org-minimal ()
+  "Test that `doing--entry-to-org' generates minimal entry correctly."
+  (let* ((entry '(:id "20260123T100000"
+                  :title "Test entry"
+                  :started "[2026-01-23 Thu 10:00]"))
+         (result (doing--entry-to-org entry)))
+    ;; Should be a string
+    (should (stringp result))
+    ;; Should start with headline
+    (should (string-match-p "^\\* Test entry\n" result))
+    ;; Should have properties drawer
+    (should (string-match-p ":PROPERTIES:" result))
+    (should (string-match-p ":ID: +20260123T100000" result))
+    (should (string-match-p ":STARTED: +\\[2026-01-23 Thu 10:00\\]" result))
+    (should (string-match-p ":END:" result))
+    ;; Should not have ENDED or DURATION (not finished)
+    (should-not (string-match-p ":ENDED:" result))
+    (should-not (string-match-p ":DURATION:" result))))
+
+(ert-deftest doing-test-entry-to-org-with-tags ()
+  "Test that `doing--entry-to-org' handles tags correctly."
+  (let* ((entry '(:id "20260123T100000"
+                  :title "Tagged entry"
+                  :tags ("emacs" "coding")
+                  :started "[2026-01-23 Thu 10:00]"))
+         (result (doing--entry-to-org entry)))
+    ;; Should have tags on headline
+    (should (string-match-p "^\\* Tagged entry :emacs:coding:\n" result))))
+
+(ert-deftest doing-test-entry-to-org-finished ()
+  "Test that `doing--entry-to-org' handles finished entries with duration."
+  (let* ((entry '(:id "20260123T100000"
+                  :title "Finished entry"
+                  :started "[2026-01-23 Thu 10:00]"
+                  :ended "[2026-01-23 Thu 11:00]"))
+         (result (doing--entry-to-org entry)))
+    ;; Should have ENDED property
+    (should (string-match-p ":ENDED: +\\[2026-01-23 Thu 11:00\\]" result))
+    ;; Should have DURATION property (1 hour = 60 minutes)
+    (should (string-match-p ":DURATION:" result))
+    ;; Duration should contain some time representation
+    (should (string-match-p ":DURATION: +[0-9]" result))))
+
+(ert-deftest doing-test-entry-to-org-with-project ()
+  "Test that `doing--entry-to-org' includes PROJECT property."
+  (let* ((entry '(:id "20260123T100000"
+                  :title "Project entry"
+                  :started "[2026-01-23 Thu 10:00]"
+                  :project "doing-el"))
+         (result (doing--entry-to-org entry)))
+    ;; Should have PROJECT property
+    (should (string-match-p ":PROJECT: +doing-el" result))))
+
+(ert-deftest doing-test-entry-to-org-with-body ()
+  "Test that `doing--entry-to-org' includes body text."
+  (let* ((entry '(:id "20260123T100000"
+                  :title "Entry with notes"
+                  :started "[2026-01-23 Thu 10:00]"
+                  :body "This is a note.\nWith multiple lines."))
+         (result (doing--entry-to-org entry)))
+    ;; Should have body after properties drawer
+    (should (string-match-p "This is a note\\." result))
+    (should (string-match-p "With multiple lines\\." result))))
+
+(ert-deftest doing-test-append-entry-to-file ()
+  "Test that `doing--append-entry-to-file' appends entry to file."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (test-file (expand-file-name "test.org" temp-dir))
+         (entry1 '(:id "entry1"
+                   :title "First entry"
+                   :started "[2026-01-23 Thu 10:00]"))
+         (entry2 '(:id "entry2"
+                   :title "Second entry"
+                   :tags ("test")
+                   :started "[2026-01-23 Thu 11:00]"
+                   :ended "[2026-01-23 Thu 12:00]")))
+    (unwind-protect
+        (progn
+          ;; Append first entry
+          (doing--append-entry-to-file entry1 test-file)
+          (should (file-exists-p test-file))
+          ;; Verify first entry was written
+          (with-temp-buffer
+            (insert-file-contents test-file)
+            (should (string-match-p "\\* First entry" (buffer-string)))
+            (should (string-match-p ":ID: +entry1" (buffer-string))))
+          ;; Append second entry
+          (doing--append-entry-to-file entry2 test-file)
+          ;; Verify both entries exist
+          (with-temp-buffer
+            (insert-file-contents test-file)
+            (let ((content (buffer-string)))
+              (should (string-match-p "\\* First entry" content))
+              (should (string-match-p "\\* Second entry :test:" content))
+              (should (string-match-p ":ID: +entry1" content))
+              (should (string-match-p ":ID: +entry2" content))
+              (should (string-match-p ":ENDED:" content))
+              (should (string-match-p ":DURATION:" content)))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-entry-to-org-complete ()
+  "Test `doing--entry-to-org' with all properties populated."
+  (let* ((entry '(:id "20260123T143000"
+                  :title "Complete entry"
+                  :tags ("emacs" "elisp" "test")
+                  :started "[2026-01-23 Thu 14:30]"
+                  :ended "[2026-01-23 Thu 15:45]"
+                  :project "doing-el"
+                  :body "Testing all properties.\nMultiple lines of notes."))
+         (result (doing--entry-to-org entry)))
+    ;; Verify all components are present
+    (should (string-match-p "^\\* Complete entry :emacs:elisp:test:\n" result))
+    (should (string-match-p ":ID: +20260123T143000" result))
+    (should (string-match-p ":STARTED: +\\[2026-01-23 Thu 14:30\\]" result))
+    (should (string-match-p ":ENDED: +\\[2026-01-23 Thu 15:45\\]" result))
+    (should (string-match-p ":DURATION:" result))
+    (should (string-match-p ":PROJECT: +doing-el" result))
+    (should (string-match-p "Testing all properties\\." result))
+    (should (string-match-p "Multiple lines of notes\\." result))))
+
 ;;; doing-test.el ends here

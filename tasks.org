@@ -196,7 +196,15 @@ Use =org-element= API to parse entries. *Do not write custom parsers.*
 - =doing-test-parse-buffer-multiple=
 - =doing-test-parse-file=
 
-** TODO Entry serialization — plist to Org
+** DONE Entry serialization — plist to Org
+:PROPERTIES:
+:ID:       2EF6D87A-A4D3-40B7-BE59-265E2565DE5A
+:CLAUDE_TIME_MS: 174957
+:CLAUDE_COST: 0.7814329499999997
+:CLAUDE_INPUT_TOKENS: 78
+:CLAUDE_OUTPUT_TOKENS: 7384
+:CLAUDE_SESSION_ID: 0e972248-dc41-4f5c-be66-7d43c82b1893
+:END:
 
 Write entry plists as Org headlines using built-in functions.
 

@@ -108,3 +108,37 @@
     - Tags are returned as a list, not a string, and empty tag lists are nil (not empty list)
     - =find-file-noselect= opens buffers which remain open after tests, while =with-temp-buffer= cleans up automatically
     - Tests creating multiple test files in same temp directory need unique filenames to avoid conflicts
+
+* 2026-01-23 - Entry serialization — plist to Org
+- what was implemented
+  - Added entry serialization utilities to doing-lib.el
+  - =doing--entry-to-org (entry)= — converts entry plist to Org headline string with properties drawer
+    - Handles title, tags, id, started, ended, project, and body fields
+    - Automatically computes and includes DURATION property when entry is finished (has :ended)
+    - Tags are formatted as :tag1:tag2: on headline
+    - Body text is appended after properties drawer
+  - =doing--append-entry-to-file (entry path)= — appends formatted entry to file
+    - Creates file with Org header if it doesn't exist (uses doing--ensure-file)
+    - Uses temp buffer and append-to-file for safe appending
+  - Added 7 comprehensive tests covering all serialization scenarios
+  - All 25 tests pass successfully (18 from previous phases + 7 new tests)
+- files changed
+  - doing-lib.el — added Entry Serialization Utilities section with doing--entry-to-org and doing--append-entry-to-file
+  - tests/doing-test.el — added Phase 5 with 7 new tests (doing-test-entry-to-org-minimal, doing-test-entry-to-org-with-tags, doing-test-entry-to-org-finished, doing-test-entry-to-org-with-project, doing-test-entry-to-org-with-body, doing-test-append-entry-to-file, doing-test-entry-to-org-complete)
+- learnings
+  - patterns discovered
+    - Using =concat= with =when= conditionals to build up Org text incrementally makes code readable
+    - =mapconcat #'identity tags ":"= is the idiomatic way to join tag lists into Org tag format :tag1:tag2:
+    - =append-to-file= safely appends content to existing files without reading entire file into memory
+    - Duration calculation is embedded in serialization: when an entry has :ended, compute duration on the fly using doing--duration-minutes and doing--duration-format
+    - Property drawer format requires specific spacing: ":PROPERTY:  value" with multiple spaces for alignment
+    - Body text should be appended after :END: with a newline to separate it from properties
+    - Testing serialization requires checking for pattern matches (string-match-p) rather than exact strings, since duration formatting can vary
+  - gotchas encountered
+    - Must use =when= to conditionally include optional properties (ended, project, body) or empty plists will generate "nil" strings
+    - Tags list can be nil (no tags) or a list of strings - must check with =when tags= before formatting
+    - Duration is computed from start/end timestamps every time entry is serialized, not stored in the plist (it's derived data)
+    - =append-to-file= requires temp buffer pattern: insert into temp buffer first, then append (point-min) (point-max) to file
+    - File must exist before appending, so always call =doing--ensure-file= first to handle the case of new files
+    - Format string alignment in properties drawer uses multiple spaces (":ID:       value") for visual consistency, matching Org-mode conventions
+    - Body text should include trailing newline when present to ensure proper spacing between entries
