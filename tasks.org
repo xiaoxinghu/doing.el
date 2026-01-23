@@ -520,6 +520,9 @@ Append to entry body.
 - =doing-test-note-error-when-no-current=
 
 ** TODO =doing-now= enhancement — auto-finish previous
+:PROPERTIES:
+:ID:       4E763D6D-4125-4B29-A2DB-9E5C0C4CA494
+:END:
 
 Extend =doing-now= to auto-finish.
 

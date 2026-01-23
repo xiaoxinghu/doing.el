@@ -876,6 +876,44 @@
   ;; Check that the function is marked as interactive
   (should (commandp 'doing-now)))
 
+(ert-deftest doing-test-now-finishes-previous ()
+  "Test that `doing-now' auto-finishes previous unfinished activity."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          ;; Create first activity
+          (doing-now "First activity" '("emacs"))
+          ;; Small delay to ensure different timestamps
+          (sleep-for 0.02)
+          ;; Start second activity - should auto-finish the first
+          (doing-now "Second activity" '("work"))
+          ;; Kill any open buffers to force re-reading from disk
+          (let ((buf (get-file-buffer (doing--file-today))))
+            (when buf (kill-buffer buf)))
+          ;; Verify both entries exist
+          (let ((entries (doing--parse-file (doing--file-today))))
+            (should (= (length entries) 2))
+            ;; First entry should be finished
+            (let ((entry1 (nth 0 entries)))
+              (should (string= (plist-get entry1 :title) "First activity"))
+              (should (plist-get entry1 :ended))
+              ;; Verify ENDED property exists and has correct format
+              (should (string-match-p "^\\[20[0-9][0-9]-[0-1][0-9]-[0-3][0-9]"
+                                     (plist-get entry1 :ended))))
+            ;; Second entry should be unfinished
+            (let ((entry2 (nth 1 entries)))
+              (should (string= (plist-get entry2 :title) "Second activity"))
+              (should (null (plist-get entry2 :ended)))))
+          ;; Verify that DURATION was set on first entry
+          (let ((file-content (with-temp-buffer
+                                (insert-file-contents (doing--file-today))
+                                (buffer-string))))
+            (should (string-match-p ":DURATION:" file-content))))
+      ;; Cleanup
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
 ;;; Phase 9: doing-current command tests
 
 (ert-deftest doing-test-current-shows-active ()

@@ -405,3 +405,33 @@
     - =save-buffer= is necessary to persist changes to file after insertion
     - Interactive prompt uses "sNote: " where "s" indicates string input (similar to other doing commands)
     - Message testing pattern established in previous features applies here: capture from *Messages* buffer before/after
+
+* 2026-01-23 - doing-now enhancement — auto-finish previous activity
+- what was implemented
+  - Enhanced =doing-now= command to automatically finish the previous unfinished activity before starting a new one
+  - Added =(require 'doing-current)= and =(require 'doing-finish)= to doing-now.el for access to helper functions
+  - Modified =doing-now= to call =doing-finish= when =doing--current-entry= returns a non-nil value
+  - Updated docstring to document the auto-finish behavior
+  - Added comprehensive test =doing-test-now-finishes-previous= to verify auto-finish functionality
+  - Test validates that first entry is finished (has :ended property) and second entry remains unfinished
+  - Test also verifies DURATION property is computed and written to file
+  - All 57 tests pass successfully (56 from previous phases + 1 new test)
+- files changed
+  - doing-now.el — added auto-finish logic and required modules (doing-current, doing-finish)
+  - tests/doing-test.el — added Phase 8 test =doing-test-now-finishes-previous= with buffer cleanup
+- learnings
+  - patterns discovered
+    - Circular workflow: starting new activity naturally finishes the old one without explicit user action
+    - Using =when= with =doing--current-entry= provides clean conditional auto-finish logic
+    - Module dependencies: doing-now depends on doing-current and doing-finish, establishing clear dependency chain
+    - Test must kill file buffer with =kill-buffer (get-file-buffer path)= before re-parsing to ensure fresh data from disk
+    - Adding =sleep-for 0.02= between operations ensures measurable time differences for duration calculations
+    - Testing both parsed properties (:ended) and file content (:DURATION:) provides comprehensive validation
+  - gotchas encountered
+    - CRITICAL: Emacs batch mode uses byte-compiled files (.elc) when they exist, even if source is newer
+    - Must run =make compile= or manually byte-compile changed files before running tests
+    - Warning "Source file newer than byte-compiled file" indicates tests are using OLD code
+    - Without buffer cleanup via =kill-buffer=, =doing--parse-file= may read cached buffer data instead of disk
+    - =find-file-noselect= keeps buffers open, which can cause stale data issues in tests
+    - Auto-finish changes behavior of existing code: =doing-test-now-creates-entry= still passes because it creates 2 entries (first is auto-finished)
+    - Message output "Started:" appears but no "Finished:" means =doing-finish= wasn't called, likely due to byte-compilation issue

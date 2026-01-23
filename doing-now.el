@@ -8,15 +8,22 @@
 ;;; Code:
 
 (require 'doing-lib)
+(require 'doing-current)
+(require 'doing-finish)
 
 ;;;###autoload
 (defun doing-now (title &optional tags)
   "Start new activity with TITLE and optional TAGS.
 Creates a new entry in today.org with automatic timestamp and ID.
+If a previous activity is still in progress, it will be automatically
+finished before starting the new one.
 If called interactively, prompts for TITLE. TAGS should be a list
 of strings, e.g., (\"emacs\" \"coding\")."
   (interactive "sWhat are you doing? ")
   (doing--ensure-directory)
+  ;; Auto-finish previous activity if it exists
+  (when (doing--current-entry)
+    (doing-finish))
   (let ((entry (list :id (doing--generate-id)
                      :title title
                      :tags tags
