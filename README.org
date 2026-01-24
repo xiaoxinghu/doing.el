@@ -4,8 +4,6 @@
 
 [[https://github.com/xiaoxinghu/doing.el/actions/workflows/test.yml][https://github.com/xiaoxinghu/doing.el/actions/workflows/test.yml/badge.svg]]
 [[https://github.com/xiaoxinghu/doing.el/actions/workflows/lint.yml][https://github.com/xiaoxinghu/doing.el/actions/workflows/lint.yml/badge.svg]]
-[[https://melpa.org/#/doing][https://melpa.org/packages/doing-badge.svg]]
-[[https://stable.melpa.org/#/doing][https://stable.melpa.org/packages/doing-badge.svg]]
 
 #+caption: what was I doing today?
 #+name: doing.el
@@ -46,27 +44,17 @@ Unlike traditional task managers that focus on planning future work, =doing.el= 
 
 * Installation
 
-** MELPA
+** Direct Installation from Repository
 
-=doing.el= is available on [[https://melpa.org/#/doing][MELPA]]. Install it using your preferred package manager:
+Install directly from GitHub using =use-package= with =:vc=:
 
-*** Using use-package
 #+BEGIN_SRC elisp
 (use-package doing
-  :ensure t
+	:vc (:url "https://github.com/xiaoxinghu/doing.el" :rev :newest)
   :bind ("C-c d" . doing-command-map))
 #+END_SRC
 
-*** Using package.el
-#+BEGIN_SRC elisp
-M-x package-install RET doing RET
-#+END_SRC
-
-Then add to your config:
-#+BEGIN_SRC elisp
-(require 'doing)
-(global-set-key (kbd "C-c d") doing-command-map)
-#+END_SRC
+*Note:* The =:vc= keyword requires Emacs 29 or later. For older versions, use manual installation below.
 
 ** Manual Installation
 
