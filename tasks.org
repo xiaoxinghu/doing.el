@@ -1223,3 +1223,11 @@ Final cleanup.
 - [X] Package headers complete
 - [X] Byte-compiles without warnings
 - [X] Tests pass
+
+
+** TODO write README.org
+:PROPERTIES:
+:ID:       C0EB7E71-FB2E-48B7-AE54-C5DB07354070
+:END:
+
+Write a simple and comprehensive README file @README.org in org-mode format, introduce the tool, illustrate it's selling point, acknowledge that it's heavily inspired by the [[https://brettterpstra.com/projects/doing/][doing tool by Brett Terpstra]]. (It's basically a re-implementation in emacs with org-mode format). And illustrate it's usage.
