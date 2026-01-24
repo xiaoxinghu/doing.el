@@ -1,4 +1,4 @@
-;;; doing.el --- A frictionless activity log for Emacs -*- lexical-binding: t; -*-
+;;; doing.el --- Frictionless activity log and time tracking -*- lexical-binding: t; -*-
 
 ;; Author: Xiaoxing Hu <hi@xiaoxing.dev>
 ;; Version: 0.1.0

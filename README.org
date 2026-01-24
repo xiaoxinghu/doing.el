@@ -2,6 +2,11 @@
 #+AUTHOR: Xiaoxing Hu
 #+OPTIONS: toc:2 num:nil
 
+[[https://github.com/xiaoxinghu/doing.el/actions/workflows/test.yml][https://github.com/xiaoxinghu/doing.el/actions/workflows/test.yml/badge.svg]]
+[[https://github.com/xiaoxinghu/doing.el/actions/workflows/lint.yml][https://github.com/xiaoxinghu/doing.el/actions/workflows/lint.yml/badge.svg]]
+[[https://melpa.org/#/doing][https://melpa.org/packages/doing-badge.svg]]
+[[https://stable.melpa.org/#/doing][https://stable.melpa.org/packages/doing-badge.svg]]
+
 #+caption: what was I doing today?
 #+name: doing.el
 [[./assets/screenshot.png]]
@@ -15,6 +20,7 @@
 This package was developed entirely through AI-assisted "vibe coding" using Claude Code and ChatGPT. The overwhelming majority of the code was written by coding agents, with human guidance on design and workflow.
 
 This is an experiment in whether an experienced software engineer can effectively build quality software in an unfamiliar language by leveraging AI coding assistants. The author has limited Emacs Lisp skills (can read basic elisp and copy-paste config snippets), but brings experience across multiple programming languages and technology stacks.
+
 
 More detailed reflections on this development approach and the experiment's outcomes will be published in the future.
 
@@ -38,6 +44,28 @@ Unlike traditional task managers that focus on planning future work, =doing.el= 
 
 
 * Installation
+
+** MELPA
+
+=doing.el= is available on [[https://melpa.org/#/doing][MELPA]]. Install it using your preferred package manager:
+
+*** Using use-package
+#+BEGIN_SRC elisp
+(use-package doing
+  :ensure t
+  :bind ("C-c d" . doing-command-map))
+#+END_SRC
+
+*** Using package.el
+#+BEGIN_SRC elisp
+M-x package-install RET doing RET
+#+END_SRC
+
+Then add to your config:
+#+BEGIN_SRC elisp
+(require 'doing)
+(global-set-key (kbd "C-c d") doing-command-map)
+#+END_SRC
 
 ** Manual Installation
 

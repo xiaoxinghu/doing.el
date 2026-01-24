@@ -1,0 +1,44 @@
+;; MELPA Recipe for doing.el
+;;
+;; This file contains the recipe to submit to MELPA.
+;;
+;; Submission Instructions:
+;; ------------------------
+;;
+;; 1. Fork https://github.com/melpa/melpa
+;;
+;; 2. Create a new file at recipes/doing with this content:
+;;
+;;    (doing :repo "xiaoxinghu/doing.el" :fetcher github)
+;;
+;; 3. Test the recipe locally:
+;;    cd melpa
+;;    make recipes/doing
+;;    make sandbox INSTALL=doing
+;;
+;; 4. Create a pull request with commit message:
+;;    Add recipe for doing.el
+;;
+;;    doing.el is an Org-mode based activity log for frictionless time
+;;    tracking and reporting, inspired by Brett Terpstra's doing CLI tool.
+;;
+;; 5. Wait for MELPA maintainers to review (typically 1-4 weeks)
+;;
+;; 6. Address any feedback and update the PR as needed
+;;
+;; 7. Once merged, the package will be available on MELPA within 24 hours
+;;
+;; For MELPA Stable:
+;; -----------------
+;; MELPA Stable builds from git tags. To release on MELPA Stable:
+;;
+;; 1. Tag a release: git tag -a v0.1.0 -m "Release 0.1.0"
+;; 2. Push the tag: git push origin v0.1.0
+;; 3. MELPA Stable will automatically pick up tagged releases
+;;
+;; The same recipe works for both MELPA and MELPA Stable.
+;;
+;; References:
+;; -----------
+;; - MELPA Contributing: https://github.com/melpa/melpa/blob/master/CONTRIBUTING.org
+;; - Recipe Format: https://github.com/melpa/melpa#recipe-format

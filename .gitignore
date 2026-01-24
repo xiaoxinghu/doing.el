@@ -1,3 +1,4 @@
 *.elc
 .vibe
 tmp
+.github-actions-cache/

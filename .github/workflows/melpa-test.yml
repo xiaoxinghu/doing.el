@@ -1,0 +1,34 @@
+name: MELPA Recipe Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  melpa-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Clone MELPA
+        run: git clone https://github.com/melpa/melpa.git ../melpa
+
+      - name: Create recipe
+        run: |
+          cat > ../melpa/recipes/doing <<'EOF'
+          (doing :repo "xiaoxinghu/doing.el" :fetcher github)
+          EOF
+
+      - name: Setup Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: '29.4'
+
+      - name: Build package
+        run: |
+          cd ../melpa
+          make recipes/doing
