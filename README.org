@@ -21,6 +21,7 @@ This package was developed entirely through AI-assisted "vibe coding" using Clau
 
 This is an experiment in whether an experienced software engineer can effectively build quality software in an unfamiliar language by leveraging AI coding assistants. The author has limited Emacs Lisp skills (can read basic elisp and copy-paste config snippets), but brings experience across multiple programming languages and technology stacks.
 
+NOTE: I do use the package myself, and I built it because I needed it to exist, the experiment is not the main point here, and I do carefully read what the agents are doing. So, don't dismiss it because the code is not "free range". I did put a lot of effort and will continue working on it. It's just not necessarily in the form of coding.
 
 More detailed reflections on this development approach and the experiment's outcomes will be published in the future.
 
