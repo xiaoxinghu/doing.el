@@ -133,6 +133,27 @@ Returns nil if no match found."
                    (seq-sort-by (lambda (e) (length (car e))) #'>
                                 doing-auto-tags)))))
 
+;;; Tag Parsing from Title
+
+(defun doing--parse-tags-from-title (title)
+  "Parse @tags from TITLE string.
+Returns (CLEAN-TITLE . TAGS) where CLEAN-TITLE has @tags removed
+and TAGS is a list of tag strings without @ prefix.
+
+Tags are words starting with @ (format: @[alphanumeric_-]+).
+Email addresses like user@example.com are NOT parsed as tags
+since they lack preceding whitespace."
+  (let ((tags '())
+        (clean-title title))
+    ;; Extract all @tag patterns (must have whitespace or start-of-string before @)
+    (while (string-match "\\(?:^\\|[[:space:]]\\)@\\([[:alnum:]_-]+\\)" clean-title)
+      (push (match-string 1 clean-title) tags)
+      (setq clean-title (replace-match " " t t clean-title)))
+    ;; Normalize whitespace and trim
+    (setq clean-title
+          (string-trim (replace-regexp-in-string "[[:space:]]+" " " clean-title)))
+    (cons clean-title (nreverse tags))))
+
 ;;; Entry Parsing Utilities
 
 (defun doing--parse-entry-at-point ()

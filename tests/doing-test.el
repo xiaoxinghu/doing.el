@@ -3134,4 +3134,88 @@
   (should (string-match-p "Suggested binding"
                           (documentation-property 'doing-command-map 'variable-documentation))))
 
+;;; Phase 25: Tag Parsing Tests
+
+(ert-deftest doing-test-parse-tags-simple ()
+  "Test basic @tag parsing from title."
+  (let ((result (doing--parse-tags-from-title "Writing code @emacs")))
+    (should (string= (car result) "Writing code"))
+    (should (equal (cdr result) '("emacs")))))
+
+(ert-deftest doing-test-parse-tags-multiple ()
+  "Test parsing multiple @tags from title."
+  (let ((result (doing--parse-tags-from-title "Fix @bug in @api module")))
+    (should (string= (car result) "Fix in module"))
+    (should (equal (cdr result) '("bug" "api")))))
+
+(ert-deftest doing-test-parse-tags-positions ()
+  "Test @tags at different positions in title."
+  (should (equal (doing--parse-tags-from-title "@tag at start")
+                 '("at start" "tag")))
+  (should (equal (doing--parse-tags-from-title "tag at @end")
+                 '("tag at" "end")))
+  (should (equal (doing--parse-tags-from-title "@start middle @end")
+                 '("middle" "start" "end"))))
+
+(ert-deftest doing-test-parse-tags-email ()
+  "Test that email addresses are not parsed as tags."
+  (let ((result (doing--parse-tags-from-title "Email user@example.com about feature")))
+    (should (string= (car result) "Email user@example.com about feature"))
+    (should (null (cdr result)))))
+
+(ert-deftest doing-test-parse-tags-special-chars ()
+  "Test tags with hyphens and underscores."
+  (let ((result (doing--parse-tags-from-title "Work @bug-fix @some_tag")))
+    (should (string= (car result) "Work"))
+    (should (equal (cdr result) '("bug-fix" "some_tag")))))
+
+(ert-deftest doing-test-parse-tags-whitespace ()
+  "Test whitespace is normalized after tag removal."
+  (let ((result (doing--parse-tags-from-title "Work  @tag  more")))
+    (should (string= (car result) "Work more"))
+    (should (equal (cdr result) '("tag")))))
+
+(ert-deftest doing-test-parse-tags-none ()
+  "Test title with no @tags."
+  (let ((result (doing--parse-tags-from-title "Plain title")))
+    (should (string= (car result) "Plain title"))
+    (should (null (cdr result)))))
+
+(ert-deftest doing-test-parse-tags-only-tags ()
+  "Test input with only @tags results in empty title."
+  (let ((result (doing--parse-tags-from-title "@tag1 @tag2")))
+    (should (string= (car result) ""))
+    (should (equal (cdr result) '("tag1" "tag2")))))
+
+(ert-deftest doing-test-now-with-inline-tags ()
+  "Test doing-now with inline @tag syntax."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir))
+    (unwind-protect
+        (progn
+          (doing-now "Fix bug @testing @emacs")
+          (let* ((entries (doing--parse-file (doing--file-today)))
+                 (entry (car entries)))
+            (should (string= (plist-get entry :title) "Fix bug"))
+            (should (equal (plist-get entry :tags) '("testing" "emacs")))))
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
+(ert-deftest doing-test-now-inline-and-auto-tags ()
+  "Test inline @tags merge with auto-tags."
+  (let* ((temp-dir (make-temp-file "doing-test-" t))
+         (doing-directory temp-dir)
+         (doing-auto-tags `((,temp-dir :tags ("auto"))))
+         (default-directory temp-dir))  ; Set default-directory for auto-tag matching
+    (unwind-protect
+        (progn
+          (doing-now "Work @inline")
+          (let* ((entries (doing--parse-file (doing--file-today)))
+                 (entry (car entries)))
+            (should (string= (plist-get entry :title) "Work"))
+            ;; Inline tags take precedence, then auto-tags
+            (should (equal (plist-get entry :tags) '("inline" "auto")))))
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t)))))
+
 ;;; doing-test.el ends here

@@ -29,6 +29,7 @@ Unlike traditional task managers that focus on planning future work, =doing.el= 
 ** Key Features
 
 - *Fast, low-friction capture* — Start logging an activity with one command
+- *Inline @tag syntax* — Add tags naturally within your activity description
 - *Automatic time tracking* — Durations computed from timestamps, no manual timers
 - *Retrospective reporting* — View today, this week, or totals by tag
 - *Project-aware auto-tagging* — Automatically tag entries based on current directory
@@ -80,6 +81,12 @@ Unlike traditional task managers that focus on planning future work, =doing.el= 
 4. *View your day:*
    #+BEGIN_SRC text
    M-x doing-view-today
+   #+END_SRC
+
+5. *Add tags with @tag syntax:*
+   #+BEGIN_SRC text
+   M-x doing-now RET Fix bug @testing @emacs
+   # Tags are extracted automatically
    #+END_SRC
 
 That's it! No project setup, no file management, just start logging.
@@ -135,12 +142,38 @@ M-x doing-now RET Review pull requests  # automatically finishes "Write tests"
 
 ** Tagging Activities
 
-Add tags when starting an activity to enable filtering and reporting:
+Add tags when starting an activity to enable filtering and reporting.
+
+*** Inline @tag Syntax (Recommended)
+
+The easiest way to add tags is using inline =@tag= syntax:
 
 #+BEGIN_SRC text
-M-x doing-now RET Fix authentication bug
-Tags: backend bug
+M-x doing-now RET Fix authentication bug @backend @bug
 #+END_SRC
+
+The =@tags= are automatically extracted and removed from the title. The entry is saved as:
+
+#+BEGIN_SRC org
+,* Fix authentication bug :backend:bug:
+#+END_SRC
+
+You can use @tags anywhere in the title:
+
+#+BEGIN_SRC text
+M-x doing-now RET Writing @documentation for the API
+# => Creates: "* Writing for the API :documentation:"
+#+END_SRC
+
+*** Programmatic Tags
+
+When calling =doing-now= programmatically, you can also provide tags as a list:
+
+#+BEGIN_SRC elisp
+(doing-now "Fix authentication bug" '("backend" "bug"))
+#+END_SRC
+
+Inline =@tags= and programmatic tags are merged together if both are provided.
 
 ** Auto-Tagging by Directory
 
@@ -154,6 +187,15 @@ Configure automatic tags based on your current directory:
 #+END_SRC
 
 Now when you call =doing-now= from within these directories, tags and project properties are applied automatically.
+
+Auto-tags are merged with inline =@tags= and programmatic tags, with user-provided tags taking precedence:
+
+#+BEGIN_SRC text
+# From ~/projects/doing.el directory:
+M-x doing-now RET Fix bug @testing
+# => Creates: "* Fix bug :testing:emacs:elisp:"
+#    (inline @testing + auto-tags emacs, elisp)
+#+END_SRC
 
 ** Adding Notes
 
@@ -232,7 +274,7 @@ Rollover happens lazily (triggered by commands) and is throttled to once per hou
 
 ** Entry Format
 
-Each activity is stored as an Org headline:
+Each activity is stored as an Org headline with tags:
 
 #+BEGIN_SRC org
 ,* Write README :emacs:documentation:
@@ -244,6 +286,12 @@ Each activity is stored as an Org headline:
 :PROJECT:  doing-el
 :END:
 Added installation instructions and usage examples.
+#+END_SRC
+
+Tags can be added using inline =@tag= syntax when creating the entry:
+
+#+BEGIN_SRC text
+M-x doing-now RET Write README @emacs @documentation
 #+END_SRC
 
 * Configuration
