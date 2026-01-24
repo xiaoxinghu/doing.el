@@ -1225,9 +1225,14 @@ Final cleanup.
 - [X] Tests pass
 
 
-** TODO write README.org
+** DONE write README.org
 :PROPERTIES:
 :ID:       C0EB7E71-FB2E-48B7-AE54-C5DB07354070
+:CLAUDE_TIME_MS: 181761
+:CLAUDE_COST: 0.7504820499999999
+:CLAUDE_INPUT_TOKENS: 43
+:CLAUDE_OUTPUT_TOKENS: 8003
+:CLAUDE_SESSION_ID: 8fedbc17-1f52-4644-81ce-47ed56d8d962
 :END:
 
 Write a simple and comprehensive README file @README.org in org-mode format, introduce the tool, illustrate it's selling point, acknowledge that it's heavily inspired by the [[https://brettterpstra.com/projects/doing/][doing tool by Brett Terpstra]]. (It's basically a re-implementation in emacs with org-mode format). And illustrate it's usage.

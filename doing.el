@@ -1,6 +1,6 @@
 ;;; doing.el --- A frictionless activity log for Emacs -*- lexical-binding: t; -*-
 
-;; Author: Xiaoxing Hu <x@huxx.org>
+;; Author: Xiaoxing Hu <hi@xiaoxing.dev>
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "27.1") (org "9.0"))
 ;; Keywords: convenience, org, time-tracking

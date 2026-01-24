@@ -1,0 +1,327 @@
+#+TITLE: doing.el — Activity Logging for Emacs
+#+AUTHOR: Xiaoxing Hu
+#+OPTIONS: toc:2 num:nil
+
+#+caption: what was I doing today?
+#+name: doing.el
+[[./assets/screenshot.png]]
+
+* Acknowledgment
+
+=doing.el= is a direct reimplementation of [[https://brettterpstra.com/projects/doing/][Brett Terpstra's excellent =doing= CLI tool]] for the Emacs environment. The workflow philosophy, command naming, and core concepts come directly from that project, adapted to work natively with Org-mode.
+
+* About This Project
+
+This package was developed entirely through AI-assisted "vibe coding" using Claude Code and ChatGPT. The overwhelming majority of the code was written by coding agents, with human guidance on design and workflow.
+
+This is an experiment in whether an experienced software engineer can effectively build quality software in an unfamiliar language by leveraging AI coding assistants. The author has limited Emacs Lisp skills (can read basic elisp and copy-paste config snippets), but brings experience across multiple programming languages and technology stacks.
+
+More detailed reflections on this development approach and the experiment's outcomes will be published in the future.
+
+* What is doing.el?
+
+=doing.el= is an Emacs package for frictionless activity logging and time tracking.
+
+It's designed to answer the question: *"What was I doing?"*
+
+Unlike traditional task managers that focus on planning future work, =doing.el= is optimized for capturing what you're doing *right now* and generating retrospective reports about where your time went.
+
+** Key Features
+
+- *Fast, low-friction capture* — Start logging an activity with one command
+- *Automatic time tracking* — Durations computed from timestamps, no manual timers
+- *Retrospective reporting* — View today, this week, or totals by tag
+- *Project-aware auto-tagging* — Automatically tag entries based on current directory
+- *Org-native storage* — All data stored as plain Org-mode files
+- *Automatic archival* — Entries automatically migrate from hot (today.org) to warm (week.org) to cold (archive/) storage
+
+
+* Installation
+
+** Manual Installation
+
+1. Clone this repository:
+   #+BEGIN_SRC bash
+   git clone https://github.com/yourusername/doing.el.git
+   #+END_SRC
+
+2. Add to your Emacs configuration:
+   #+BEGIN_SRC elisp
+   (add-to-list 'load-path "/path/to/doing.el")
+   (require 'doing)
+   #+END_SRC
+
+3. Optionally set up keybindings:
+   #+BEGIN_SRC elisp
+   (global-set-key (kbd "C-c d") doing-command-map)
+   #+END_SRC
+
+* Quick Start
+
+** Basic Workflow
+
+1. *Start an activity:*
+   #+BEGIN_SRC text
+   M-x doing-now RET Write README
+   #+END_SRC
+
+2. *Check what you're doing:*
+   #+BEGIN_SRC text
+   M-x doing-current
+   # => [0:15] Write README *
+   #+END_SRC
+
+3. *Finish the activity:*
+   #+BEGIN_SRC text
+   M-x doing-finish
+   # => Finished: Write README (0:23)
+   #+END_SRC
+
+4. *View your day:*
+   #+BEGIN_SRC text
+   M-x doing-view-today
+   #+END_SRC
+
+That's it! No project setup, no file management, just start logging.
+
+** Auto-Finish Behavior
+
+When you start a new activity with =doing-now=, any unfinished activity is automatically finished. This creates a natural flow:
+
+#+BEGIN_SRC text
+M-x doing-now RET Write tests
+M-x doing-now RET Review pull requests  # automatically finishes "Write tests"
+#+END_SRC
+
+* Commands Reference
+
+** Capture & Lifecycle
+
+| Command          | Keybinding | Description                           |
+|------------------+------------+---------------------------------------|
+| =doing-now=        | =C-c d n=    | Start a new activity                  |
+| =doing-finish=     | =C-c d f=    | Finish current activity               |
+| =doing-cancel=     | (none)     | Cancel current activity (delete)      |
+| =doing-again=      | =C-c d a=    | Resume last finished activity         |
+| =doing-note=       | (none)     | Add a note to current activity        |
+
+** Viewing
+
+| Command               | Keybinding | Description                      |
+|-----------------------+------------+----------------------------------|
+| =doing-view-today=      | =C-c d t=    | Show today's activities          |
+| =doing-view-yesterday=  | (none)     | Show yesterday's activities      |
+| =doing-view-week=       | =C-c d w=    | Show this week's activities      |
+| =doing-view-recent=     | (none)     | Show N most recent entries       |
+| =doing-view-since=      | (none)     | Show entries since a date        |
+
+** Reporting
+
+| Command         | Keybinding | Description                     |
+|-----------------+------------+---------------------------------|
+| =doing-totals=    | =C-c d T=    | Show time totals by tag         |
+| =doing-search=    | =C-c d s=    | Search entries by text or @tag  |
+
+** Utilities
+
+| Command         | Keybinding | Description                        |
+|-----------------+------------+------------------------------------|
+| =doing-current=   | =C-c d c=    | Show current activity in minibuffer |
+| =doing-last=      | (none)     | Show last entry                    |
+| =doing-edit=      | =C-c d e=    | Open today.org and jump to current |
+| =doing-open=      | =C-c d o=    | Open a doing log file              |
+
+* Usage Examples
+
+** Tagging Activities
+
+Add tags when starting an activity to enable filtering and reporting:
+
+#+BEGIN_SRC text
+M-x doing-now RET Fix authentication bug
+Tags: backend bug
+#+END_SRC
+
+** Auto-Tagging by Directory
+
+Configure automatic tags based on your current directory:
+
+#+BEGIN_SRC elisp
+(setq doing-auto-tags
+      '(("~/projects/doing.el" :project "doing-el" :tags ("emacs" "elisp"))
+        ("~/projects/api"      :project "api"      :tags ("backend" "go"))
+        ("~/projects/website"  :project "website"  :tags ("frontend" "react"))))
+#+END_SRC
+
+Now when you call =doing-now= from within these directories, tags and project properties are applied automatically.
+
+** Adding Notes
+
+Add context to your current activity:
+
+#+BEGIN_SRC text
+M-x doing-note RET Found the issue in session middleware
+M-x doing-note RET Updated auth flow diagram
+#+END_SRC
+
+Notes are appended to the entry body and preserved during archival.
+
+** Time Totals
+
+See where your time went this week:
+
+#+BEGIN_SRC text
+M-x doing-totals
+
+Totals for 2026-W04
+
+By tag:
+  emacs            4:30
+  backend          3:15
+  frontend         2:45
+  bug              1:30
+  ----------------
+  Total           12:00
+#+END_SRC
+
+** Searching
+
+Search by text:
+#+BEGIN_SRC text
+M-x doing-search RET authentication
+#+END_SRC
+
+Search by tag:
+#+BEGIN_SRC text
+M-x doing-search RET @bug
+#+END_SRC
+
+** Resuming Activities
+
+Quickly resume your last activity:
+
+#+BEGIN_SRC text
+M-x doing-again
+# Creates a new entry with the same title and tags as your last finished activity
+#+END_SRC
+
+* Storage Model
+
+** File Organization
+
+=doing.el= uses a three-tier storage system optimized for performance:
+
+#+BEGIN_SRC text
+~/org/doing/
+├── today.org              # Hot: today's activities only
+├── week.org               # Warm: current ISO week
+└── archive/
+    ├── 2026-W01.org       # Cold: archived weeks
+    ├── 2026-W02.org
+    └── 2026-W03.org
+#+END_SRC
+
+** Automatic Rollover
+
+Entries automatically migrate between files:
+
+- *Daily:* At midnight, yesterday's entries move from =today.org= to =week.org=
+- *Weekly:* On Monday, last week's entries move from =week.org= to =archive/YYYY-WNN.org=
+
+Rollover happens lazily (triggered by commands) and is throttled to once per hour for performance.
+
+** Entry Format
+
+Each activity is stored as an Org headline:
+
+#+BEGIN_SRC org
+,* Write README :emacs:documentation:
+:PROPERTIES:
+:ID:       20260124T153000
+:STARTED:  [2026-01-24 Fri 15:30]
+:ENDED:    [2026-01-24 Fri 16:15]
+:DURATION: 0:45
+:PROJECT:  doing-el
+:END:
+Added installation instructions and usage examples.
+#+END_SRC
+
+* Configuration
+
+** Basic Setup
+
+#+BEGIN_SRC elisp
+;; Optional: change the storage directory (default: ~/org/doing/)
+(setq doing-directory "~/Documents/doing/")
+
+;; Optional: set up keybindings
+(global-set-key (kbd "C-c d") doing-command-map)
+#+END_SRC
+
+** Auto-Tagging Setup
+
+#+BEGIN_SRC elisp
+(setq doing-auto-tags
+      '(("~/work/project-a" :project "project-a" :tags ("work" "client"))
+        ("~/personal"       :project "personal"  :tags ("personal"))))
+#+END_SRC
+
+Alternatively, use =.dir-locals.el= for per-project configuration:
+
+#+BEGIN_SRC elisp
+((nil . ((doing-project . "my-project")
+         (doing-default-tags . ("tag1" "tag2")))))
+#+END_SRC
+
+* Philosophy
+
+=doing.el= is designed around a few core principles:
+
+** Capture First, Organize Later
+
+The barrier to logging an activity should be as low as possible. You don't need to think about projects, categories, or file structure—just describe what you're doing and start.
+
+** Retrospective Over Prospective
+
+Traditional task managers focus on *planning* what you'll do. =doing.el= focuses on *recording* what you did. This makes it perfect for:
+
+- Timesheet generation
+- Billing and invoicing
+- Retrospective analysis
+- Understanding work patterns
+
+** Minimal Friction
+
+Common operations (=doing-now=, =doing-finish=) require minimal input. Timestamps, durations, and IDs are all generated automatically.
+
+** Org-Native
+
+All data is stored as standard Org-mode files. You can:
+
+- Edit entries manually in Org-mode
+- Use Org-mode features (links, formatting, etc.)
+- Export using Org's export system
+- Process files with any Org-aware tool
+
+* Compatibility
+
+- *Emacs:* 27.1 or later
+- *Org-mode:* 9.0 or later (built-in with Emacs)
+
+* Development
+
+Running Tests.
+
+#+BEGIN_SRC bash
+make test          # Run all tests
+make compile       # Byte-compile package
+make clean         # Remove compiled files
+#+END_SRC
+
+* License
+
+MIT License
+
+* Author
+
+Xiaoxing Hu — [[mailto:hi@xiaoxing.dev][hi@xiaoxing.dev]]

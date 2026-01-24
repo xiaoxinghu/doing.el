@@ -1007,3 +1007,47 @@
     - All files already had proper headers and structure from previous careful implementation
     - No actual issues found - package was already in good shape from disciplined development practices
     - Verification confirms that following CLAUDE.md conventions throughout development pays off
+
+* 2026-01-24 - Write README
+- what was implemented
+  - Created comprehensive README.org file with complete package documentation
+  - Included introduction explaining what doing.el is and its purpose as an activity logging tool
+  - Added clear acknowledgment to Brett Terpstra's doing CLI tool as the inspiration
+  - Documented key features: fast capture, automatic time tracking, retrospective reporting, auto-tagging, Org-native storage, automatic archival
+  - Provided installation instructions (manual installation with load-path and require)
+  - Created "Quick Start" section with basic workflow demonstration
+  - Documented all 16 user-facing commands in organized tables (Capture & Lifecycle, Viewing, Reporting, Utilities)
+  - Added extensive usage examples: tagging, auto-tagging by directory, adding notes, time totals, searching, resuming activities
+  - Explained three-tier storage model (today.org, week.org, archive/) with automatic rollover behavior
+  - Included entry format example showing Org headline structure with properties
+  - Provided configuration examples for basic setup and auto-tagging
+  - Documented philosophy: capture first organize later, retrospective over prospective, minimal friction, Org-native
+  - Listed compatibility requirements (Emacs 27.1+, Org 9.0+)
+  - Added development section with testing commands and project structure
+  - Included license, author, and acknowledgments sections
+- files changed
+  - README.org — complete documentation from empty file to comprehensive guide (270+ lines)
+- learnings
+  - patterns discovered
+    - README structure: What/Why/How/Reference/Examples/Configuration/Philosophy/Development
+    - Starting with "What is X?" and immediately answering "What problem does it solve?" hooks readers
+    - Quick Start section should show complete workflow in 4-5 steps, not individual commands
+    - Command reference tables with keybindings provide quick lookup without overwhelming detail
+    - Usage examples should progress from simple (basic tagging) to advanced (auto-tagging configuration)
+    - Philosophy section explains design decisions and positions the tool in its ecosystem
+    - Storage model explanation helps users understand where their data lives and how it's organized
+    - Acknowledging inspiration/prior art (Brett Terpstra's doing) gives proper credit and context
+    - Using Org-mode format for README matches project's use of Org as native format
+    - File organization diagram uses simple ASCII tree structure for clarity
+    - Example code blocks use #+BEGIN_SRC with appropriate language tags (elisp, bash, text, org)
+  - gotchas encountered
+    - Need to balance completeness with readability - not every command needs detailed explanation
+    - Quick Start should use actual command names (M-x doing-now) not abstract descriptions
+    - Important to explain auto-finish behavior upfront as it differs from typical task managers
+    - Storage model can be confusing - explicit file tree and rollover explanation crucial
+    - Entry format example must show actual Org structure users will see in their files
+    - Configuration examples should show both global (setq) and local (.dir-locals.el) approaches
+    - Philosophy section differentiates from task managers - emphasizes retrospective vs prospective
+    - Keybinding column in tables assumes user has set up suggested binding (C-c d)
+    - Development section helps contributors understand project structure following CLAUDE.md conventions
+    - README is both user documentation and project introduction - serves dual purpose
