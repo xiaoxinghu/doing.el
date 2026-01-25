@@ -4,13 +4,13 @@ EMACS ?= emacs
 BATCH = $(EMACS) --batch -Q
 
 # Source files
-SRCS = doing.el
+SRCS = $(wildcard doing*.el)
 TESTS = tests/doing-test.el
 
 # Load path for tests
 LOAD_PATH = -L . -L tests
 
-.PHONY: test test-verbose clean compile lint checkdoc check
+.PHONY: test test-verbose clean compile lint checkdoc check melpazoid
 
 # Run all tests
 test:
@@ -46,14 +46,23 @@ lint:
 		--eval "(require 'package-lint)" \
 		--eval "(setq package-lint-main-file \"doing.el\")" \
 		-f package-lint-batch-and-exit \
-		doing.el doing-lib.el doing-now.el doing-note.el doing-finish.el \
-		doing-again.el doing-cancel.el doing-current.el doing-rollover.el \
-		doing-search.el doing-totals.el doing-utils.el doing-view.el \
-		doing-view-commands.el
+		$(SRCS)
 
 # Check documentation
 checkdoc:
 	$(BATCH) -L . --eval "(or (checkdoc-file \"doing.el\") (kill-emacs 1))"
+
+# Run melpazoid (requires Docker)
+melpazoid:
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "Error: docker is required to run melpazoid"; \
+		echo "Install Docker from https://www.docker.com/"; \
+		exit 1; \
+	fi
+	@echo "Running melpazoid (MELPA validation)..."
+	docker run --rm -v $(PWD):/melpazoid/external -it \
+		ghcr.io/riscy/melpazoid:latest \
+		'(doing :fetcher github :repo "xiaoxinghu/doing.el" :files (:defaults "README.org" (:exclude "batch.el")))'
 
 # Run all checks
 check: compile lint checkdoc test
