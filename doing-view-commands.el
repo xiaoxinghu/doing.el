@@ -1,5 +1,25 @@
 ;;; doing-view-commands.el --- View commands for doing.el -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Xiaoxing Hu
+
+;; Author: Xiaoxing Hu <hi@xiaoxing.dev>
+;; SPDX-License-Identifier: GPL-3.0-or-later
+
+;; This file is NOT part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;;; Commentary:
 
 ;; Standard view commands for displaying entries:
@@ -30,7 +50,7 @@
   "Display yesterday's activities."
   (interactive)
   (doing--ensure-rollover)
-  (let* ((yesterday (format-time-string "%Y-%m-%d"
+  (let* ((yesterday (format-time-string "%F"
                       (time-subtract (current-time) (days-to-time 1))))
          (all-entries (append (doing--parse-file (doing--file-today))
                               (doing--parse-file (doing--file-week))))
@@ -67,7 +87,7 @@ With prefix argument, prompt for N."
 ;;;###autoload
 (defun doing-view-since (date)
   "Display entries since DATE.
-DATE is prompted using org-read-date."
+DATE is prompted using `org-read-date'."
   (interactive (list (org-read-date nil nil nil "Since: ")))
   (doing--ensure-rollover)
   (let* ((all-entries (append (doing--parse-file (doing--file-today))

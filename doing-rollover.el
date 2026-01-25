@@ -1,5 +1,25 @@
 ;;; doing-rollover.el --- Entry rollover utilities for doing.el -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Xiaoxing Hu
+
+;; Author: Xiaoxing Hu <hi@xiaoxing.dev>
+;; SPDX-License-Identifier: GPL-3.0-or-later
+
+;; This file is NOT part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;;; Commentary:
 
 ;; Internal functions for rolling over entries between files:
@@ -18,7 +38,7 @@
 (defun doing--rollover-daily ()
   "Move entries from previous days to week.org.
 Returns the number of entries moved, or nil if none were moved."
-  (let* ((today (format-time-string "%Y-%m-%d"))
+  (let* ((today (format-time-string "%F"))
          (today-file (doing--file-today))
          (entries (doing--parse-file today-file))
          (old (seq-filter

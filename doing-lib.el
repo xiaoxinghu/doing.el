@@ -1,5 +1,25 @@
 ;;; doing-lib.el --- Internal utilities for doing.el -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Xiaoxing Hu
+
+;; Author: Xiaoxing Hu <hi@xiaoxing.dev>
+;; SPDX-License-Identifier: GPL-3.0-or-later
+
+;; This file is NOT part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;;; Commentary:
 
 ;; Internal helper functions for file/directory management, parsing,
@@ -73,7 +93,7 @@ Otherwise, derive title from filename."
 (defun doing--timestamp-now ()
   "Return current time as Org inactive timestamp.
 Format: [YYYY-MM-DD DDD HH:MM]"
-  (format-time-string "[%Y-%m-%d %a %H:%M]"))
+  (format-time-string "[%F %a %R]"))
 
 (defun doing--timestamp-to-time (timestamp)
   "Parse Org TIMESTAMP string to Emacs time.

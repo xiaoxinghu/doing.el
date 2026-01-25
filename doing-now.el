@@ -1,5 +1,25 @@
 ;;; doing-now.el --- Capture commands for doing.el -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Xiaoxing Hu
+
+;; Author: Xiaoxing Hu <hi@xiaoxing.dev>
+;; SPDX-License-Identifier: GPL-3.0-or-later
+
+;; This file is NOT part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;;; Commentary:
 
 ;; Commands for capturing new activities in the doing log.
@@ -23,7 +43,7 @@ from the title when saved to the Org file.
 Examples:
   Interactive: \"Fix bug @testing @emacs\"
     → Creates entry with title \"Fix bug\" and tags :testing:emacs:
-  Programmatic: (doing-now \"Code review @work\" '(\"urgent\"))
+  Programmatic: (doing-now \"Code review @work\" \\='(\"urgent\"))
     → Merges inline tag \"work\" with programmatic tag \"urgent\"
 
 Creates a new entry in today.org with automatic timestamp and ID.
