@@ -20,7 +20,7 @@ jobs:
       - name: Create recipe
         run: |
           cat > ../melpa/recipes/doing <<'EOF'
-          (doing :repo "xiaoxinghu/doing.el" :fetcher github)
+          (doing :fetcher github :repo "xiaoxinghu/doing.el" :files (:defaults "README.org" (:exclude "batch.el")))
           EOF
 
       - name: Setup Emacs
