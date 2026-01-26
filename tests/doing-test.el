@@ -2001,10 +2001,17 @@ This test has several robustness improvements for CI stability:
                  ;; (This handles Sunday where yesterday is in previous ISO week)
                  (days-ago (if (equal current-week old-week-1) 1 2))
                  (old-time (time-subtract (current-time) (days-to-time days-ago)))
+                 (old-week (doing--iso-week old-time))
                  (old-date (format-time-string "%Y-%m-%d" old-time))
                  (old-day (format-time-string "%a" old-time))
                  (today-file (doing--file-today))
                  (week-file (doing--file-week)))
+
+            ;; Skip test if old date is in a different ISO week
+            ;; (This happens on Monday when we're at start of new week)
+            (when (not (equal current-week old-week))
+              (ert-skip (format "Test skipped: Cannot find date in current ISO week (today week %s, old week %s)"
+                              current-week old-week)))
 
             ;; Create entry from old date directly in today.org
             (doing--append-entry-to-file
