@@ -2030,8 +2030,40 @@ This test has several robustness improvements for CI stability:
               (insert-file-contents today-file)
               (should (search-forward "yesterday-id" nil t)))
 
-            ;; Perform rollover
-            (doing--ensure-rollover)
+            ;; Debug: Show what date we're using and what week calculations will be
+            (message "Test date info: old-date=%s old-day=%s" old-date old-day)
+            (message "Current ISO week: %s" (doing--iso-week))
+            (let ((old-time-parsed (org-parse-time-string
+                                    (format "[%s %s 10:00]" old-date old-day))))
+              (when old-time-parsed
+                (let ((old-time-encoded (encode-time old-time-parsed)))
+                  (message "Old entry ISO week: %s"
+                           (doing--iso-week old-time-encoded)))))
+
+            ;; Perform rollover - call daily first, then check state, then weekly
+            (let ((daily-result (doing--rollover-daily)))
+              (message "After daily rollover: moved %s entries" daily-result)
+
+              ;; Force buffer cleanup and sync before checking intermediate state
+              (dolist (buf (buffer-list))
+                (when (and (buffer-live-p buf) (buffer-file-name buf))
+                  (let ((fname (buffer-file-name buf)))
+                    (when (string-prefix-p temp-dir fname)
+                      (with-current-buffer buf
+                        (when (buffer-modified-p)
+                          (save-buffer))
+                        (set-buffer-modified-p nil))
+                      (kill-buffer buf)))))
+              (sleep-for 0.1)
+
+              ;; Check intermediate state
+              (let ((today-count (length (doing--parse-file today-file)))
+                    (week-count (length (doing--parse-file week-file))))
+                (message "After daily, before weekly: today=%d week=%d"
+                         today-count week-count))
+
+              (let ((weekly-result (doing--rollover-weekly)))
+                (message "After weekly rollover: moved %s entries" weekly-result)))
 
             ;; Force save and kill all buffers in multiple passes to be thorough
             (dotimes (_ 3)
