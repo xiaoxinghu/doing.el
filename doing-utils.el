@@ -53,7 +53,10 @@ Otherwise, open today.org at the last entry."
   (find-file (doing--file-today))
   (when-let ((entry (doing--current-entry)))
     (goto-char (plist-get entry :begin))
-    (org-fold-show-context)))
+    ;; Use org-fold-show-context if available (Org 9.6+), fallback to org-show-context
+    (if (fboundp 'org-fold-show-context)
+        (org-fold-show-context)
+      (with-no-warnings (org-show-context)))))
 
 ;;;###autoload
 (defun doing-open (&optional file)
