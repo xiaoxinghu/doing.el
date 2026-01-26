@@ -1990,12 +1990,16 @@ This test has several robustness improvements for CI stability:
     (unwind-protect
         (progn
           (doing--ensure-directory)
-          ;; Use an old date within current week to avoid weekly archival
-          ;; If today is Monday, yesterday (Sunday) would be in previous week
-          ;; ISO weeks start on Monday, so we need to be careful
-          (let* ((day-of-week (string-to-number (format-time-string "%u")))  ; 1=Mon, 7=Sun
-                 ;; Use 1 day ago, or 2 days if today is Monday
-                 (days-ago (if (= day-of-week 1) 2 1))
+          ;; Use an old date within current ISO week to avoid weekly archival
+          ;; ISO weeks start on Monday. We need to ensure the old date is in
+          ;; the same ISO week as today by checking the ISO week explicitly.
+          (let* ((current-week (doing--iso-week))
+                 ;; Start with 1 day ago and verify it's in the same week
+                 (old-time-1 (time-subtract (current-time) (days-to-time 1)))
+                 (old-week-1 (doing--iso-week old-time-1))
+                 ;; If 1 day ago is in a different week, use 2 days ago instead
+                 ;; (This handles Sunday where yesterday is in previous ISO week)
+                 (days-ago (if (equal current-week old-week-1) 1 2))
                  (old-time (time-subtract (current-time) (days-to-time days-ago)))
                  (old-date (format-time-string "%Y-%m-%d" old-time))
                  (old-day (format-time-string "%a" old-time))
