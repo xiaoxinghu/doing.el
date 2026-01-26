@@ -1977,48 +1977,111 @@
         (delete-directory temp-dir t)))))
 
 (ert-deftest doing-test-rollover-with-old-data ()
-  "Test that `doing--ensure-rollover' correctly moves old entries."
+  "Test that `doing--ensure-rollover' correctly moves old entries.
+This test has several robustness improvements for CI stability:
+- Uses a date within the current ISO week to avoid weekly archival
+- Handles Monday edge case (yesterday would be in previous week)
+- Multiple buffer cleanup passes to ensure file sync
+- Direct file content verification in addition to parsed entries
+- Explicit sleep delays for slower file systems"
   (let* ((temp-dir (make-temp-file "doing-test-" t))
          (doing-directory temp-dir)
-         (doing--last-rollover-time nil)
-         (today-file (doing--file-today))
-         (week-file (doing--file-week)))
+         (doing--last-rollover-time nil))
     (unwind-protect
         (progn
           (doing--ensure-directory)
-          ;; Create an entry from yesterday in today.org
-          (let* ((yesterday-time (time-subtract (current-time) (days-to-time 1)))
-                 (yesterday-date (format-time-string "%Y-%m-%d" yesterday-time)))
+          ;; Use an old date within current week to avoid weekly archival
+          ;; If today is Monday, yesterday (Sunday) would be in previous week
+          ;; ISO weeks start on Monday, so we need to be careful
+          (let* ((day-of-week (string-to-number (format-time-string "%u")))  ; 1=Mon, 7=Sun
+                 ;; Use 1 day ago, or 2 days if today is Monday
+                 (days-ago (if (= day-of-week 1) 2 1))
+                 (old-time (time-subtract (current-time) (days-to-time days-ago)))
+                 (old-date (format-time-string "%Y-%m-%d" old-time))
+                 (old-day (format-time-string "%a" old-time))
+                 (today-file (doing--file-today))
+                 (week-file (doing--file-week)))
+
+            ;; Create entry from old date directly in today.org
             (doing--append-entry-to-file
              (list :id "yesterday-id"
-                   :title "Yesterday's task"
-                   :started (format "[%s %s 10:00]"
-                                    yesterday-date
-                                    (format-time-string "%a" yesterday-time))
-                   :ended (format "[%s %s 11:00]"
-                                  yesterday-date
-                                  (format-time-string "%a" yesterday-time))
+                   :title "Old task"
+                   :started (format "[%s %s 10:00]" old-date old-day)
+                   :ended (format "[%s %s 11:00]" old-date old-day)
                    :tags '("old"))
              today-file)
-            ;; Kill buffer to ensure fresh read
-            (when-let ((buf (get-file-buffer today-file)))
-              (kill-buffer buf))
-            ;; Verify entry exists in today.org
-            (let ((entries-before (doing--parse-file today-file)))
-              (should (= 1 (length entries-before))))
-            ;; Call ensure-rollover
+
+            ;; Kill all buffers to ensure clean state
+            (let ((killed-buffers 0))
+              (dolist (buf (buffer-list))
+                (when (buffer-file-name buf)
+                  (let ((fname (buffer-file-name buf)))
+                    (when (string-prefix-p temp-dir fname)
+                      (with-current-buffer buf
+                        (set-buffer-modified-p nil)
+                        (kill-buffer buf)
+                        (setq killed-buffers (1+ killed-buffers)))))))
+              ;; Ensure buffers are actually gone
+              (when (> killed-buffers 0)
+                (sleep-for 0.1)))
+
+            ;; Verify entry exists before rollover by reading file directly
+            (with-temp-buffer
+              (insert-file-contents today-file)
+              (should (search-forward "yesterday-id" nil t)))
+
+            ;; Perform rollover
             (doing--ensure-rollover)
-            ;; Kill buffers
-            (when-let ((buf (get-file-buffer today-file)))
-              (kill-buffer buf))
-            (when-let ((buf (get-file-buffer week-file)))
-              (kill-buffer buf))
-            ;; Entry should be moved to week.org
-            (let ((today-entries (doing--parse-file today-file))
-                  (week-entries (doing--parse-file week-file)))
-              (should (= 0 (length today-entries)))
-              (should (= 1 (length week-entries)))
-              (should (string= "yesterday-id" (plist-get (car week-entries) :id))))))
+
+            ;; Force save and kill all buffers in multiple passes to be thorough
+            (dotimes (_ 3)
+              (dolist (buf (buffer-list))
+                (when (and (buffer-live-p buf) (buffer-file-name buf))
+                  (let ((fname (buffer-file-name buf)))
+                    (when (string-prefix-p temp-dir fname)
+                      (with-current-buffer buf
+                        (when (buffer-modified-p)
+                          (save-buffer))
+                        (set-buffer-modified-p nil))
+                      (kill-buffer buf)))))
+              ;; Small delay between passes
+              (sleep-for 0.05))
+
+            ;; Final wait for file operations to complete
+            (sleep-for 0.1)
+
+            ;; Verify results by reading files directly first
+            (let ((today-has-entry nil)
+                  (week-has-entry nil))
+              (when (file-exists-p today-file)
+                (with-temp-buffer
+                  (insert-file-contents today-file)
+                  (setq today-has-entry
+                        (search-forward "yesterday-id" nil t))))
+              (when (file-exists-p week-file)
+                (with-temp-buffer
+                  (insert-file-contents week-file)
+                  (setq week-has-entry
+                        (search-forward "yesterday-id" nil t))))
+
+              ;; Now verify with parse functions
+              (let ((today-entries (doing--parse-file today-file))
+                    (week-entries (doing--parse-file week-file)))
+
+                ;; Debug output
+                (message "Test files: today=%s week=%s" today-file week-file)
+                (message "Direct check: today-has-entry=%s week-has-entry=%s"
+                         today-has-entry week-has-entry)
+                (message "Parsed: today-entries=%d week-entries=%d"
+                         (length today-entries) (length week-entries))
+
+                ;; Assertions
+                (should-not today-has-entry)
+                (should week-has-entry)
+                (should (= 0 (length today-entries)))
+                (should (= 1 (length week-entries)))
+                (should (string= "yesterday-id"
+                               (plist-get (car week-entries) :id)))))))
       ;; Cleanup
       (when (file-exists-p temp-dir)
         (delete-directory temp-dir t)))))
