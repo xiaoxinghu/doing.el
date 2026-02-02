@@ -56,7 +56,8 @@ Otherwise, open today.org at the last entry."
     ;; Use org-fold-show-context if available (Org 9.6+), fallback to org-show-context
     (if (fboundp 'org-fold-show-context)
         (org-fold-show-context)
-      (with-no-warnings (org-show-context)))))
+      (with-suppressed-warnings ((obsolete org-show-context))
+        (org-show-context)))))
 
 ;;;###autoload
 (defun doing-open (&optional file)
