@@ -64,54 +64,6 @@
 (require 'doing-search)
 (require 'doing-utils)
 
-;;; Customization
-
-(defgroup doing nil
-  "A frictionless activity log for Emacs.
-Track what you're doing with minimal friction, automatic time
-tracking, and easy reporting."
-  :group 'org
-  :prefix "doing-"
-  :link '(url-link :tag "GitHub" "https://github.com/xiaoxinghu/doing.el"))
-
-(defcustom doing-directory (expand-file-name "~/org/doing/")
-  "Directory where doing.el stores activity log files.
-This directory will contain:
-- today.org   — current day's activities
-- week.org    — current week's activities
-- archive/    — archived weekly files"
-  :type 'directory
-  :group 'doing)
-
-(defcustom doing-auto-tags nil
-  "Alist mapping directory prefixes to tags/properties.
-When `doing-now' is called, the current `default-directory' is matched
-against the directories in this alist (longest prefix wins), and the
-corresponding tags and properties are automatically applied to the entry.
-
-Each entry is (DIRECTORY . PLIST) where PLIST can contain:
-  :project STRING   — set PROJECT property
-  :tags LIST        — add tags (list of strings)
-
-Example:
-  ((\"~/projects/doing.el\" :project \"doing-el\" :tags (\"emacs\"))
-   (\"~/projects/api\"      :project \"api\"      :tags (\"backend\")))"
-  :type '(alist :key-type string
-                :value-type (plist :key-type symbol :value-type sexp))
-  :group 'doing)
-
-;;; Internal Configuration
-;; These are not exposed as customization options to keep the model simple.
-
-(defconst doing--file-today-name "today.org"
-  "Name of the file for today's entries.")
-
-(defconst doing--file-week-name "week.org"
-  "Name of the file for current week's entries.")
-
-(defconst doing--archive-directory-name "archive"
-  "Name of the directory for archived weekly files.")
-
 ;;; Keymap
 
 (defvar doing-command-map
